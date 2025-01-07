@@ -25,7 +25,7 @@ def execute_test_case(number_row1, number_col1, number_col2, path_input, path_ou
 
     # Execute the students code
     time_start = time.perf_counter()
-    os.system(f"./main {number_row1} {number_col1} {number_col2} {path_input} {path_output}")
+    os.system(f"./main {0} {number_row1} {number_col1} {number_col2} {path_input} {path_output}")#type was not included in sir code
     time_duration = time.perf_counter() - time_start # in seconds
 
     # Get the students output matrix
