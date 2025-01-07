@@ -21,7 +21,7 @@ def execute_test_case(number_row1, number_col1, number_col2, path_input, path_ou
         fp.write(mtx_B.tobytes())
     
     # Compile the students code
-    os.system("make")
+    #os.system("make")
 
     # Execute the students code
     time_start = time.perf_counter()
