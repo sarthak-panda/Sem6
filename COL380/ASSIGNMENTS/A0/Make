@@ -1,0 +1,20 @@
+# Makefile
+
+# Compiler
+CXX = g++-11
+
+# Compiler flags
+CXXFLAGS = -O3
+
+# Target executable
+TARGET = output_executable
+
+# Source file
+SRC = source_file.cpp
+
+# Default target
+all: $(TARGET)
+
+# Build target
+$(TARGET): $(SRC)
+    $(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
