@@ -1,6 +1,6 @@
 import numpy as np, os, time
 
-def execute_test_case(number_row1, number_col1, number_col2, path_input, path_output):
+def execute_test_case(type, number_row1, number_col1, number_col2, path_input, path_output):
     # Generate random matrices
     mtx_A = np.random.random(size = (number_row1, number_col1)) * 1e2 # dtype = float64
     mtx_B = np.random.random(size = (number_col1, number_col2)) * 1e2 # dtype = float64
@@ -21,11 +21,11 @@ def execute_test_case(number_row1, number_col1, number_col2, path_input, path_ou
         fp.write(mtx_B.tobytes())
     
     # Compile the students code
-    #os.system("make")
+    os.system("make")
 
     # Execute the students code
     time_start = time.perf_counter()
-    os.system(f"./main {0} {number_row1} {number_col1} {number_col2} {path_input} {path_output}")#type was not included in sir code
+    os.system(f"./main {type} {number_row1} {number_col1} {number_col2} {path_input} {path_output}")
     time_duration = time.perf_counter() - time_start # in seconds
 
     # Get the students output matrix
@@ -43,7 +43,7 @@ def execute_test_case(number_row1, number_col1, number_col2, path_input, path_ou
     return result, time_duration
 
 if __name__ == "__main__":
-    result, time_duration = execute_test_case(100, 100, 100, "./input_path/", "./output_path/")
+    result, time_duration = execute_test_case(5, 2000, 1000, 3000, "./input_path/", "./output_path/")
     if result:
         print("Test Case passed")
     else:

@@ -1,7 +1,7 @@
 # Makefile
 
 # Compiler
-CXX = g++
+CXX = g++-11
 
 # Compiler flags
 CXXFLAGS = -O3

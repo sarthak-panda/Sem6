@@ -11,7 +11,7 @@ void matrixMultiplyIJK(double* A, double* B, int r_A, int c_A, int c_B, double* 
     for(int i=0;i<r_A;i++){
         for(int j=0;j<c_B;j++){
             for(int k=0;k<c_A;k++){
-                C[i*r_A+j]+=A[i*r_A+k]*B[k*c_A+j];
+                C[i*c_B+j]+=A[i*c_A+k]*B[k*c_B+j];
             }
         }
     }
@@ -21,7 +21,7 @@ void matrixMultiplyJIK(double* A, double* B, int r_A, int c_A, int c_B, double* 
     for(int j=0;j<c_B;j++){
         for(int i=0;i<r_A;i++){
             for(int k=0;k<c_A;k++){
-                C[i*r_A+j]+=A[i*r_A+k]*B[k*c_A+j];
+                C[i*c_B+j]+=A[i*c_A+k]*B[k*c_B+j];
             }
         }
     }    
@@ -31,7 +31,7 @@ void matrixMultiplyKIJ(double* A, double* B, int r_A, int c_A, int c_B, double* 
     for(int k=0;k<c_A;k++){
         for(int i=0;i<r_A;i++){
             for(int j=0;j<c_B;j++){
-                C[i*r_A+j]+=A[i*r_A+k]*B[k*c_A+j];
+                C[i*c_B+j]+=A[i*c_A+k]*B[k*c_B+j];
             }
         }
     }    
@@ -41,7 +41,7 @@ void matrixMultiplyIKJ(double* A, double* B, int r_A, int c_A, int c_B, double* 
     for(int i=0;i<r_A;i++){
         for(int k=0;k<c_A;k++){
             for(int j=0;j<c_B;j++){
-                C[i*r_A+j]+=A[i*r_A+k]*B[k*c_A+j];
+                C[i*c_B+j]+=A[i*c_A+k]*B[k*c_B+j];
             }
         }
     }    
@@ -51,7 +51,7 @@ void matrixMultiplyJKI(double* A, double* B, int r_A, int c_A, int c_B, double* 
     for(int j=0;j<c_B;j++){
         for(int k=0;k<c_A;k++){
             for(int i=0;i<r_A;i++){
-                C[i*r_A+j]+=A[i*r_A+k]*B[k*c_A+j];
+                C[i*c_B+j]+=A[i*c_A+k]*B[k*c_B+j];
             }
         }
     } 
@@ -61,7 +61,7 @@ void matrixMultiplyKJI(double* A, double* B, int r_A, int c_A, int c_B, double* 
     for(int k=0;k<c_A;k++){
         for(int j=0;j<c_B;j++){
             for(int i=0;i<r_A;i++){
-                C[i*r_A+j]+=A[i*r_A+k]*B[k*c_A+j];
+                C[i*c_B+j]+=A[i*c_A+k]*B[k*c_B+j];
             }
         }
     }    
