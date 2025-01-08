@@ -1,4 +1,5 @@
 import numpy as np, os, time
+import matplotlib.pyplot as plt
 
 def execute_test_case(type, number_row1, number_col1, number_col2, path_input, path_output):
     # Generate random matrices
@@ -43,8 +44,25 @@ def execute_test_case(type, number_row1, number_col1, number_col2, path_input, p
     return result, time_duration
 
 if __name__ == "__main__":
-    result, time_duration = execute_test_case(5, 2000, 1000, 3000, "./input_path/", "./output_path/")
-    if result:
-        print("Test Case passed")
-    else:
-        print("Test Case failed")
+    data={}
+    sizes=[]
+    for n in range(1000,3000,1000):
+        sizes.append(n)
+        for type in range(6):
+            cummulative_time = 0
+            for _ in range(3):
+                result, time_duration = execute_test_case(type, n, n, n, "./input_path/", "./output_path/")
+                cummulative_time += time_duration
+                if not(result):
+                    print("Test Case failed")
+                else:
+                    print(f"Test Case passed in {time_duration} seconds")
+            cummulative_time /= 3
+            data[type]=data.get(type,[])
+            data[type].append(cummulative_time)
+    #0 = IJK, 1 = IKJ, 2=JIK, 3=JKI, 4=KIJ, 5=KJI 
+    type_map=["IJK","IKJ","JIK","JKI","KIJ","KJI"]
+    for i in range(6):
+        plt.plot(sizes,data[i],label=type_map[i])
+    plt.legend()
+    plt.show()  

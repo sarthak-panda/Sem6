@@ -4,13 +4,13 @@
 CXX = g++-11
 
 # Compiler flags
-CXXFLAGS = -O3
+CXXFLAGS = -O3 -std=c++17
 
 # Target executable
 TARGET = main
 
 # Source file
-SRC = Experiment1.cpp
+SRC = main.cpp
 
 # Default target
 all: $(TARGET)
