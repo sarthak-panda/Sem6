@@ -43,6 +43,7 @@ def execute_test_case(type, number_row1, number_col1, number_col2, path_input, p
 
     return result, time_duration
 
+
 if __name__ == "__main__":
     data={}
     sizes=[]
