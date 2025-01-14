@@ -4,7 +4,7 @@
 CXX = g++-11
 
 # Compiler flags
-CXXFLAGS = -O3 -std=c++17
+CXXFLAGS = -O3 -std=c++17 -fopt-info-vec-optimized -ftree-vectorize
 
 # Target executable
 TARGET = main

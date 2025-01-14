@@ -43,6 +43,13 @@ def execute_test_case(type, number_row1, number_col1, number_col2, path_input, p
 
     return result, time_duration
 
+# if __name__ == "__main__":
+#     result, time_duration = executFFFffe_test_case(3, 2000, 2000, 2000, "./input_path/", "./output_path/")
+#     if result:s
+#         print(f"Test Case passed in {time_duration} seconds")
+#     else:
+#         print("Test Case failed")
+
 if __name__ == "__main__":
     data={}
     sizes=[]
