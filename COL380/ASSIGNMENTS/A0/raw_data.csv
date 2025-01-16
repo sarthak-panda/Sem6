@@ -1,2 +1,0 @@
-permutation_number,dimension,total_user_time(in sec),user_time_in_matrix_multiplication(in sec),percent_of_user_time_taken_by_matrix_multiplication,total_cache_misses,cache_hit_rate,instructions_per_cycle
-0,1000,0.618,0.601005,97.25,2913784,0.9786540804412993,2.9925505874387714
