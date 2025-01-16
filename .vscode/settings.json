@@ -1,0 +1,59 @@
+{
+	"folder-color.pathColors": [
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\3.pdf\\",
+			"color": "foldercolorizer.color_33cc00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\2.pdf\\",
+			"color": "foldercolorizer.color_33cc00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\1.pdf\\",
+			"badge": "✅",
+			"color": "foldercolorizer.color_33cc00"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\0.pdf\\",
+			"color": "foldercolorizer.color_33cc00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\4.pdf\\",
+			"badge": "❌",
+			"color": "foldercolorizer.color_ee0000"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\Lectures\\W1_intro.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\Lectures\\W2.1_intro.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\03-RelationalModel.pdf\\",
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\02-ER.pdf\\",
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\01-Introduction.pdf\\",
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\04-RelationalAlgebra.pdf\\",
+			"badge": "❌",
+			"color": "foldercolorizer.color_ee0000"
+		}
+	]
+}
