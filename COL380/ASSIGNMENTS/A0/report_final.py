@@ -205,7 +205,7 @@ for size in range(1000, 3000, 1000):
         fp.write(mtx_B.tobytes())    
     for perm_num in range(6):
         os.system(
-            f"perf record -e task-clock,cycles,instructions,cache-references,cache-misses,user_time -F 1000 -g --no-kernel ./main 0 {size} {size} {size} ./Analysis_output/input_path_{size}/ ./Analysis_output/output_path_{size}/"
+            f"perf record -e task-clock,cycles,instructions,cache-references,cache-misses,user_time -F 1000 -g --no-kernel ./main {perm_num} {size} {size} {size} ./Analysis_output/input_path_{size}/ ./Analysis_output/output_path_{size}/"
         )
         os.system(f"perf report --stdio > Analysis_output/perf_report_{size}_{perm_num}.txt")
         os.system(f"gprof ./main gmon.out > Analysis_output/analysis_{size}_{perm_num}.txt")
