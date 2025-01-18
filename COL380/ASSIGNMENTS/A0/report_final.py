@@ -16,6 +16,7 @@ def plot(data_plot, sizes):
     for i in range(6):
         plt.plot(sizes, y_axis_data[i], label=type_map[i])
     plt.legend()
+    plt.title("user time vs matrix multiplication size")
     plt.savefig(
         "Analysis_output/user time vs matrix multiplication size.png", dpi=400, bbox_inches="tight"
     )
@@ -29,6 +30,7 @@ def plot(data_plot, sizes):
     for i in range(6):
         plt.plot(sizes, y_axis_data[i], label=type_map[i])
     plt.legend()
+    plt.title("user time in matrix multiplication vs matrix multiplication size")
     plt.savefig(
         "Analysis_output/user time in matrix multiplication vs matrix multiplication size.png",
         dpi=400,
@@ -44,6 +46,7 @@ def plot(data_plot, sizes):
     for i in range(6):
         plt.plot(sizes, y_axis_data[i], label=type_map[i])
     plt.legend()
+    plt.title("cache hit rate vs matrix multiplication size")
     plt.savefig(
         "Analysis_output/cache hit rate vs matrix multiplication size.png", dpi=400, bbox_inches="tight"
     )
@@ -51,6 +54,7 @@ def plot(data_plot, sizes):
 
 
 def helper(perm_num, size, data_plot):
+    type_map = ["IJK", "IKJ", "JIK", "JKI", "KIJ", "KJI"]
     file = open(f"Analysis_output/perf_report_{size}_{perm_num}.txt")
     lines = file.readlines()
     data_to_collect = [
@@ -148,8 +152,7 @@ def helper(perm_num, size, data_plot):
     latex_doccument = f"""
     \\documentclass{{article}}
     \\begin{{document}}
-    Matrix Size: {size}x{size}
-    \\
+    Matrix Size: {size}x{size}, Permutation Number: {type_map[perm_num]} \\\\
     {latex_table}
     \\end{{document}}
     """
@@ -187,7 +190,7 @@ writer.writerow(header)
 f.close()
 data_plot = {}
 sizes = []
-for size in range(1000, 3000, 1000):
+for size in range(1000, 6000, 1000):
     sizes.append(size)
     data_plot[size] = {}
     path_input, path_output = f"./Analysis_output/input_path_{size}/", f"./Analysis_output/output_path_{size}/"
@@ -216,6 +219,8 @@ for size in range(1000, 3000, 1000):
             print("The result matrix shape didn't match")
             # return False
         result = np.allclose(mtx_C, student_result, rtol=1e-10, atol=1e-12)
+        if not result:
+            print("Test Case failed")
 plot(data_plot, sizes)
 # perf record -e task-clock,cycles,instructions,cache-references,cache-misses,user_time -F 1000 -g --no-kernel ./main 0 1000 1000 1000 ./input_path/ ./output_path/
 # perf report --stdio > perf_report.txt

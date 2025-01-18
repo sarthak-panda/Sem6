@@ -4,7 +4,7 @@
 CXX = g++-11
 
 # Compiler flags
-CXXFLAGS = -O3 -std=c++17 -g -pg
+CXXFLAGS = -O3 -std=c++17
 
 # Target executable
 TARGET = main
