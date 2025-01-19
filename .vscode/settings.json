@@ -2,28 +2,28 @@
 	"folder-color.pathColors": [
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\3.pdf\\",
-			"color": "foldercolorizer.color_33cc00",
+			"color": "foldercolorizer.color_00ff00",
 			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\2.pdf\\",
-			"color": "foldercolorizer.color_33cc00",
+			"color": "foldercolorizer.color_00ff00",
 			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\1.pdf\\",
 			"badge": "✅",
-			"color": "foldercolorizer.color_33cc00"
+			"color": "foldercolorizer.color_00ff00"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\0.pdf\\",
-			"color": "foldercolorizer.color_33cc00",
+			"color": "foldercolorizer.color_00ff00",
 			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\4.pdf\\",
-			"badge": "❌",
-			"color": "foldercolorizer.color_ee0000"
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
 		},
 		{
 			"folderPath": "Sem6\\COL380\\Lectures\\W1_intro.pdf\\",
@@ -99,6 +99,11 @@
 			"folderPath": "Sem6\\COL352\\Tutorial\\1.pdf\\",
 			"badge": "❌",
 			"color": "foldercolorizer.color_ee0000"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\5.pdf\\",
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
 		}
 	]
 }
