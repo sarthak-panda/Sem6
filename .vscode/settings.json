@@ -104,6 +104,15 @@
 			"folderPath": "Sem6\\COL352\\Lectures\\5.pdf\\",
 			"badge": "✅",
 			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\ASSIGNMENTS\\A0\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL331\\BOOK\\osbook-v0.75.pdf\\",
+			"color": "foldercolorizer.color_ffcc66"
 		}
 	]
 }
