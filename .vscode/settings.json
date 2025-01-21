@@ -113,6 +113,15 @@
 		{
 			"folderPath": "Sem6\\COL331\\BOOK\\osbook-v0.75.pdf\\",
 			"color": "foldercolorizer.color_ffcc66"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\Lectures\\W2_intro.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\BOOK\\Subodh_Kumar.pdf\\",
+			"color": "foldercolorizer.color_ffcc66"
 		}
 	]
 }
