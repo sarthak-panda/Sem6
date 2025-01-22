@@ -122,6 +122,16 @@
 		{
 			"folderPath": "Sem6\\COL380\\BOOK\\Subodh_Kumar.pdf\\",
 			"color": "foldercolorizer.color_ffcc66"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\InClassTutorials\\SQL-01.ipynb\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\6.pdf\\",
+			"color": "foldercolorizer.color_ee0000",
+			"badge": "❌"
 		}
 	]
 }
