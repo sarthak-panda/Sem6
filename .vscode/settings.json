@@ -97,8 +97,8 @@
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Tutorial\\1.pdf\\",
-			"badge": "❌",
-			"color": "foldercolorizer.color_ee0000"
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\5.pdf\\",
@@ -141,6 +141,26 @@
 		{
 			"folderPath": "Sem6\\COL331\\BOOK\\osbook-v0.76.pdf\\",
 			"color": "foldercolorizer.color_ffcc66"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\7.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\8.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\InClassTutorials\\SQL-5.ipynb\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\InClassTutorials\\SQL-06.ipynb\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		}
 	]
 }
