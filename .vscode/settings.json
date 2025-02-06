@@ -180,6 +180,7 @@
 	],
 	"files.associations": {
 		"vector": "cpp",
-		"utility": "cpp"
+		"utility": "cpp",
+		"map": "cpp"
 	}
 }
