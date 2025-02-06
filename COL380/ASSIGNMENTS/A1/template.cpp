@@ -70,28 +70,57 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
 
 vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
     vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
+    vector<int> P(n, 0);
+    vector<int> B(n, 0);
     //let us first try a naive approach to multiply the matrices k=2 case
     //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
-    //A*A
-    for (int i = 0; i < n/m; i++) {
-        for (int j = 0; j < n/m; j++) {
-            for (int l = 0; l < n/m; l++) {
-                //block multiplication
-                //if either of block not present, continue
-                if (blocks.find({i, l}) == blocks.end() || blocks.find({l, j}) == blocks.end()) {
-                    continue;
-                }
-                for (int x = 0; x < m; x++) {
-                    for (int y = 0; y < m; y++) {
-                        for (int z = 0; z < m; z++) {
-                            result[{i, j}][x][y] += blocks[{i, l}][x][z] * blocks[{l, j}][z][y];
+    map<pair<int, int>, vector<vector<int>>> blocks_dash = blocks;
+    for (int o=0;o<k;o++){
+        //A^k = A^(k-1) * A
+        for (int i = 0; i < n/m; i++) {
+            for (int j = 0; j < n/m; j++) {
+                for (int l = 0; l < n/m; l++) {
+                    //block multiplication
+                    //if either of block not present, continue
+                    if (blocks_dash.find({i, l}) == blocks_dash.end() || blocks.find({l, j}) == blocks.end()) {
+                        continue;
+                    }
+                    for (int x = 0; x < m; x++) {
+                        for (int y = 0; y < m; y++) {
+                            for (int z = 0; z < m; z++) {
+                                int value=blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
+                                result[{i, j}][x][y] += value;
+                                //if k=2, we need to calculate row statistics for each row
+                                if (k == 2 && value!=0) {
+                                    P[i*m + x] += 1;
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+        //copy result to blocks_dash
+        blocks_dash = result;
     }
-    //if k=2, we need to calculate row statistics
+    //let us see how we can genralize the above code for any k to compute A^k
+    //also note for k>2 we do not need to calculate row statistics
+    //let us see how can we calculate row statistics
+    if (k==2){
+        for (int i = 0; i < n/m; i++) {
+            for (int j = 0; j < n/m; j++) {
+                if (blocks.find({i, j}) == blocks.end()) {
+                    continue;
+                }
+                for (int x = 0; x < m; x++) {
+                    B[i*m + x] += m;
+                }
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            row_statistics[i] = (float)P[i] / B[i];
+        }
+    }
     return (k == 2) ? row_statistics : vector<float>();
 }
