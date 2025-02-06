@@ -11,6 +11,31 @@
 
 using namespace std;
 
+//yused from checker script recheck
+void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) {
+    for (auto it = matrixBlocks.begin(); it != matrixBlocks.end(); ) {
+        vector<vector<int>>& block = it->second;
+        bool isBlockNonZero = false;
+
+        for (auto& row : block) {
+            for (auto& value : row) {
+                if (value % 5 == 0) {
+                    value = 0;
+                }
+                if (value != 0) {
+                    isBlockNonZero = true;
+                }
+            }
+        }
+
+        if (!isBlockNonZero) {
+            it = matrixBlocks.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
     map<pair<int, int>, vector<vector<int>>> matrix_map;
     // 0<=i<n/m and 0<=j<n/m we need to b number of blocks of size m*m
@@ -56,9 +81,15 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
             {
                 pair<int, int> key = keys[k];
                 vector<vector<int>> block(m, vector<int>(m, 0));
-                for (int i = 0; i < m; i++){
-                    for (int j = 0; j < m; j++){
-                        block[i][j] = dist_block(gen);
+                bool nonZeroOccured = false;
+                while (!nonZeroOccured){
+                    for (int i = 0; i < m; i++){
+                        for (int j = 0; j < m; j++){
+                            block[i][j] = dist_block(gen);
+                            if (block[i][j] != 0) {
+                                nonZeroOccured = true;
+                            }
+                        }
                     }
                 }
                 matrix_map[key] = block;
@@ -72,25 +103,32 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
     vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
     vector<int> P(n, 0);
     vector<int> B(n, 0);
+    removeMultiplesOf5_own(blocks);
     //let us first try a naive approach to multiply the matrices k=2 case
     //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
     map<pair<int, int>, vector<vector<int>>> blocks_dash = blocks;
-    for (int o=0;o<k;o++){
+    for (int o=0;o<k-1;o++){
         //A^k = A^(k-1) * A
         for (int i = 0; i < n/m; i++) {
             for (int j = 0; j < n/m; j++) {
+                result[{i, j}]=std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
+                bool nonZeroOccured = false;
                 for (int l = 0; l < n/m; l++) {
                     //block multiplication
                     //if either of block not present, continue
                     if (blocks_dash.find({i, l}) == blocks_dash.end() || blocks.find({l, j}) == blocks.end()) {
                         continue;
                     }
+                    //ice al entries are positive , so we can assume if two non zero blocks are multiplied, the result is non zero
+                    nonZeroOccured = true;
                     for (int x = 0; x < m; x++) {
                         for (int y = 0; y < m; y++) {
                             for (int z = 0; z < m; z++) {
                                 int value=blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
                                 result[{i, j}][x][y] += value;
+                                // cout<<x<<" "<<y<<" "<<z<<" "<<value<<endl;
+                                // cout<<value<<endl;
                                 //if k=2, we need to calculate row statistics for each row
                                 if (k == 2 && value!=0) {
                                     P[i*m + x] += 1;
@@ -98,6 +136,9 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                             }
                         }
                     }
+                }
+                if (!nonZeroOccured) {
+                    result.erase({i, j});
                 }
             }
         }
@@ -122,5 +163,16 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
             row_statistics[i] = (float)P[i] / B[i];
         }
     }
+    blocks = result;
+    //print blocks
+    // for (auto& entry : blocks) {
+    //     cout << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+    //     for (auto& row : entry.second) {
+    //         for (int val : row) {
+    //             cout << val << " ";
+    //         }
+    //         cout << "\n";
+    //     }
+    // }
     return (k == 2) ? row_statistics : vector<float>();
 }

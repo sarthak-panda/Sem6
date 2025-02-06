@@ -155,6 +155,7 @@ int main() {
     else
         cout<<"Your function did NOT compute the square correctly\n";
     cout << "Size of S = " << s.size()<<endl;
+    cout << s[0] << " " << s[1] << " " << s[2] << " " << s[3] << " " << s[4] << " " << s[5] << " " << s[6] << " " << s[7] << " " << s[8] << endl;
 
     return 0;
 }
