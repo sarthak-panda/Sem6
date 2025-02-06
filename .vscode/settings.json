@@ -172,5 +172,9 @@
 			"color": "foldercolorizer.color_00ff00",
 			"badge": "✅"
 		}
-	]
+	],
+	"files.associations": {
+		"vector": "cpp",
+		"utility": "cpp"
+	}
 }
