@@ -99,7 +99,7 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
     return matrix_map;
 }
 
-vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
+vector<float> matmul_serial(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
     vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
     vector<int> P(n, 0);
     vector<int> B(n, 0);
@@ -177,47 +177,52 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
     return (k == 2) ? row_statistics : vector<float>();
 }
 
-vector<float> matmul_parallel(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
+vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
     vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
     vector<int> P(n, 0);
     vector<int> B(n, 0);
     removeMultiplesOf5_own(blocks);
+    //let us first try a naive approach to multiply the matrices k=2 case
+    //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
     map<pair<int, int>, vector<vector<int>>> blocks_dash = blocks;
-    for (int o=0;o<k-1;o++){
-        //A^k = A^(k-1) * A
-        for (int i = 0; i < n/m; i++) {
-            for (int j = 0; j < n/m; j++) {
-                result[{i, j}]=std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
-                bool nonZeroOccured = false;
-                for (int l = 0; l < n/m; l++) {
-                    //block multiplication
-                    //if either of block not present, continue
-                    if (blocks_dash.find({i, l}) == blocks_dash.end() || blocks.find({l, j}) == blocks.end()) {
-                        continue;
-                    }
-                    //ice al entries are positive , so we can assume if two non zero blocks are multiplied, the result is non zero
-                    nonZeroOccured = true;
-                    for (int x = 0; x < m; x++) {
-                        for (int y = 0; y < m; y++) {
-                            for (int z = 0; z < m; z++) {
-                                int value=blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
-                                result[{i, j}][x][y] += value;
-                                //if k=2, we need to calculate row statistics for each row
-                                if (k == 2 && value!=0) {
-                                    P[i*m + x] += 1;
+    #pragma omp parallel//to if with black box
+    #pragma omp single // to if with black box
+    {
+        for (int o=0;o<k-1;o++){
+            //A^k = A^(k-1) * A
+            #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, P, B) //to if with black box
+            for (int i = 0; i < n/m; i++) {
+                for (int j = 0; j < n/m; j++) {
+                    for (int l = 0; l < n/m; l++) {
+                        //block multiplication
+                        //if either of block not present, continue
+                        if (blocks_dash.find({i, l}) == blocks_dash.end() || blocks.find({l, j}) == blocks.end()) {
+                            continue;
+                        }
+                        //ice al entries are positive , so we can assume if two non zero blocks are multiplied, the result is non zero
+                        result[{i, j}]=std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
+                        for (int x = 0; x < m; x++) {
+                            for (int y = 0; y < m; y++) {
+                                for (int z = 0; z < m; z++) {
+                                    int value=blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
+                                    result[{i, j}][x][y] += value;
+                                    // cout<<x<<" "<<y<<" "<<z<<" "<<value<<endl;
+                                    // cout<<value<<endl;
+                                    //if k=2, we need to calculate row statistics for each row
+                                    if (k == 2 && value!=0) {
+                                        #pragma omp atomic update
+                                            P[i*m + x] += 1;
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                if (!nonZeroOccured) {
-                    result.erase({i, j});
-                }
             }
+            //copy result to blocks_dash
+            blocks_dash = result;
         }
-        //copy result to blocks_dash
-        blocks_dash = result;
     }
     //let us see how we can genralize the above code for any k to compute A^k
     //also note for k>2 we do not need to calculate row statistics
