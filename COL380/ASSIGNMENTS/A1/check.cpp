@@ -66,7 +66,7 @@ void print_matrix_map_console(map<pair<int, int>, vector<vector<int>>>& matrix_m
 }
 
 void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
-    ofstream log_file("log.txt", ios::trunc); // Open in truncate mode (clears old content)
+    ofstream log_file("log.txt", ios::app); // Open in truncate mode (clears old content)
 
     if (!log_file) {
         cerr << "Error: Unable to open log.txt" << endl;
