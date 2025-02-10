@@ -6,6 +6,7 @@
 #include <ctime>
 #include <random>
 #include <algorithm>
+#include <fstream>
 #include "check.h"
 
 using namespace std;
@@ -51,7 +52,7 @@ void removeMultiplesOf5(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) 
     }
 }
 
-void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
+void print_matrix_map_console(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
     for (auto& entry : matrix_map) {
         cout << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
         for (auto& row : entry.second) {
@@ -62,6 +63,28 @@ void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
         }
         cout << endl;
     }
+}
+
+void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
+    ofstream log_file("log.txt", ios::trunc); // Open in truncate mode (clears old content)
+
+    if (!log_file) {
+        cerr << "Error: Unable to open log.txt" << endl;
+        return;
+    }
+
+    for (auto& entry : matrix_map) {
+        log_file << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+        for (auto& row : entry.second) {
+            for (int val : row) {
+                log_file << val << " ";
+            }
+            log_file << "\n";
+        }
+        log_file << "\n";
+    }
+
+    log_file.close();
 }
 
 bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
