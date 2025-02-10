@@ -75,13 +75,13 @@ void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
 
     for (auto& entry : matrix_map) {
         log_file << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
-        for (auto& row : entry.second) {
-            for (int val : row) {
-                log_file << val << " ";
-            }
-            log_file << "\n";
-        }
-        log_file << "\n";
+        // for (auto& row : entry.second) {
+        //     for (int val : row) {
+        //         log_file << val << " ";
+        //     }
+        //     log_file << "\n";
+        // }
+        // log_file << "\n";
     }
 
     log_file.close();
@@ -160,9 +160,9 @@ int count_non_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
 }
 
 int main() {
-    int n = 100;
-    int m = 3;
-    int b = 3;
+    int n = 1000;
+    int m = 50;
+    int b = 60;
     int k = 2;
 
     srand(time(0));
