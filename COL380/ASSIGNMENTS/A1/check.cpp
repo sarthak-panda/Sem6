@@ -51,6 +51,19 @@ void removeMultiplesOf5(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) 
     }
 }
 
+void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
+    for (auto& entry : matrix_map) {
+        cout << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+        for (auto& row : entry.second) {
+            for (int val : row) {
+                cout << val << " ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+    }
+}
+
 bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
                map<pair<int, int>, vector<vector<int>>>& matrix2, int m) {
     removeMultiplesOf5(matrix1);
@@ -76,16 +89,25 @@ bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
     
 
     if (squared_result.size() != matrix2.size()) {
+        cout<<"Size mismatch\n";
+        print_matrix_map(squared_result);
+        print_matrix_map(matrix2);
         return false;
     }
 
     for (auto& [block_pos, block] : squared_result) {
         if (matrix2.find(block_pos) == matrix2.end()) {
+            cout<<"err\n";
+            print_matrix_map(squared_result);
+            print_matrix_map(matrix2);
             return false;
         }
 
         vector<vector<int>>& block2 = matrix2.at(block_pos);
         if (block != block2) {
+            cout<<"err\n";
+            print_matrix_map(squared_result);
+            print_matrix_map(matrix2);            
             return false;
         }
     }
@@ -112,19 +134,6 @@ int count_non_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     }
 
     return non_zero_count;
-}
-
-void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
-    for (auto& entry : matrix_map) {
-        cout << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
-        for (auto& row : entry.second) {
-            for (int val : row) {
-                cout << val << " ";
-            }
-            cout << endl;
-        }
-        cout << endl;
-    }
 }
 
 int main() {
