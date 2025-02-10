@@ -87,6 +87,28 @@ void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
     log_file.close();
 }
 
+void print_matrix_map_matrices(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
+    ofstream log_file("log_mat.txt", ios::app); // Open in truncate mode (clears old content)
+
+    if (!log_file) {
+        cerr << "Error: Unable to open log_mat.txt" << endl;
+        return;
+    }
+
+    for (auto& entry : matrix_map) {
+        log_file << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+        for (auto& row : entry.second) {
+            for (int val : row) {
+                log_file << val << " ";
+            }
+            log_file << "\n";
+        }
+        log_file << "\n";
+    }
+    log_file << "------------------end----------------"<< endl;
+    log_file.close();
+}
+
 bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
                map<pair<int, int>, vector<vector<int>>>& matrix2, int m) {
     removeMultiplesOf5(matrix1);
@@ -114,7 +136,9 @@ bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
     if (squared_result.size() != matrix2.size()) {
         cout<<"Size mismatch\n";
         print_matrix_map(squared_result);
+        print_matrix_map_matrices(squared_result);
         print_matrix_map(matrix2);
+        print_matrix_map_matrices(matrix2);
         return false;
     }
 
@@ -122,7 +146,9 @@ bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
         if (matrix2.find(block_pos) == matrix2.end()) {
             cout<<"err\n";
             print_matrix_map(squared_result);
+            print_matrix_map_matrices(squared_result);
             print_matrix_map(matrix2);
+            print_matrix_map_matrices(matrix2);
             return false;
         }
 
@@ -130,7 +156,9 @@ bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
         if (block != block2) {
             cout<<"err\n";
             print_matrix_map(squared_result);
-            print_matrix_map(matrix2);            
+            print_matrix_map_matrices(squared_result);
+            print_matrix_map(matrix2);   
+            print_matrix_map_matrices(matrix2);      
             return false;
         }
     }
