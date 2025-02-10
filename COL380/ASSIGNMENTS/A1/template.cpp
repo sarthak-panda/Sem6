@@ -48,7 +48,7 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
     // example usage : #pragma omp task shared(A, B, C) depend(in:B) if(black_box()) mult_block(A, B, C);
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<int> dist(0, n/m);
+    std::uniform_int_distribution<int> dist(0, (n/m)-1);
     vector<pair<int, int>> keys;
     //let us generate b random pairs of i and j
     for (int i = 0; i < b; i++) {
