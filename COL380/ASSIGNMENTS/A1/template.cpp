@@ -194,6 +194,8 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
             #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, P, B) //to if with black box
             for (int i = 0; i < n/m; i++) {
                 for (int j = 0; j < n/m; j++) {
+                    result[{i, j}]=std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
+                    bool nonZeroOccured = false;
                     for (int l = 0; l < n/m; l++) {
                         //block multiplication
                         //if either of block not present, continue
@@ -201,7 +203,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                             continue;
                         }
                         //ice al entries are positive , so we can assume if two non zero blocks are multiplied, the result is non zero
-                        result[{i, j}]=std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
+                        nonZeroOccured = true;
                         for (int x = 0; x < m; x++) {
                             for (int y = 0; y < m; y++) {
                                 for (int z = 0; z < m; z++) {
@@ -217,6 +219,9 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                                 }
                             }
                         }
+                    }
+                    if (!nonZeroOccured) {
+                        result.erase({i, j});
                     }
                 }
             }
