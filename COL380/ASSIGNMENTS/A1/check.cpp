@@ -87,11 +87,55 @@ void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
     log_file.close();
 }
 
+void input_print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
+    ofstream log_file("log_i.txt", ios::app); // Open in truncate mode (clears old content)
+
+    if (!log_file) {
+        cerr << "Error: Unable to open log_i.txt" << endl;
+        return;
+    }
+
+    for (auto& entry : matrix_map) {
+        log_file << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+        // for (auto& row : entry.second) {
+        //     for (int val : row) {
+        //         log_file << val << " ";
+        //     }
+        //     log_file << "\n";
+        // }
+        // log_file << "\n";
+    }
+    log_file << "------------------end----------------"<< endl;
+    log_file.close();
+}
+
 void print_matrix_map_matrices(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
     ofstream log_file("log_mat.txt", ios::app); // Open in truncate mode (clears old content)
 
     if (!log_file) {
         cerr << "Error: Unable to open log_mat.txt" << endl;
+        return;
+    }
+
+    for (auto& entry : matrix_map) {
+        log_file << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+        for (auto& row : entry.second) {
+            for (int val : row) {
+                log_file << val << " ";
+            }
+            log_file << "\n";
+        }
+        log_file << "\n";
+    }
+    log_file << "------------------end----------------"<< endl;
+    log_file.close();
+}
+
+void input_print_matrix_map_matrices(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
+    ofstream log_file("log_mat_i.txt", ios::app); // Open in truncate mode (clears old content)
+
+    if (!log_file) {
+        cerr << "Error: Unable to open log_mat_i.txt" << endl;
         return;
     }
 
@@ -200,7 +244,8 @@ int main() {
         cout<<"You have generated the matrix correctly\n";
     else
         cout<<"You have NOT generated the matrix correctly\n";
-
+    input_print_matrix_map(blocks);
+    input_print_matrix_map_matrices(blocks);
     map<pair<int, int>, vector<vector<int>>> original_blocks = blocks;
     
     vector<float> s = matmul(blocks, n, m, k);
