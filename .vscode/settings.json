@@ -176,6 +176,46 @@
 			"folderPath": "Sem6\\COL352\\Lectures\\11.pdf\\",
 			"color": "foldercolorizer.color_00ff00",
 			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\12.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\06-FD.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\07-normalization.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\08-DB-Internals-overview.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\Lectures\\W4_shared1.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\Lectures\\W4.1_shared1.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\Lectures\\W5_consistency1.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\Lectures\\W5.1_consistency1.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		}
 	],
 	"files.associations": {

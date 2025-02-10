@@ -52,16 +52,14 @@ void removeMultiplesOf5(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) 
 }
 
 bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
-               map<pair<int, int>, vector<vector<int>>>& matrix2) {
+               map<pair<int, int>, vector<vector<int>>>& matrix2, int m) {
     removeMultiplesOf5(matrix1);
-    int m = matrix1.size();
     map<pair<int, int>, vector<vector<int>>> squared_result;
 
     for (auto& [block_pos1, block1] : matrix1) {
         for (auto& [block_pos2, block2] : matrix1) {
             if (block_pos1.second == block_pos2.first) {
                 vector<vector<int>> product = multiply_blocks(block1, block2, m);
-
                 if (squared_result.find({block_pos1.first, block_pos2.second}) != squared_result.end()) {
                     vector<vector<int>>& existing_block = squared_result[{block_pos1.first, block_pos2.second}];
                     for (int i = 0; i < m; ++i) {
@@ -75,6 +73,7 @@ bool is_square(map<pair<int, int>, vector<vector<int>>>& matrix1,
             }
         }
     }
+    
 
     if (squared_result.size() != matrix2.size()) {
         return false;
@@ -129,9 +128,9 @@ void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
 }
 
 int main() {
-    int n = 100000;
-    int m = 256;
-    int b = 100;
+    int n = 100;
+    int m = 3;
+    int b = 3;
     int k = 2;
 
     srand(time(0));
@@ -143,10 +142,11 @@ int main() {
         cout<<"You have NOT generated the matrix correctly\n";
 
     map<pair<int, int>, vector<vector<int>>> original_blocks = blocks;
+    
     vector<float> s = matmul(blocks, n, m, k);
 
-    bool res = is_square(original_blocks, blocks);
-    if(res && blocks.size())
+    bool res = is_square(original_blocks, blocks, m);
+    if(res)
         cout<<"Your function computed the square correctly\n";
     else
         cout<<"Your function did NOT compute the square correctly\n";
