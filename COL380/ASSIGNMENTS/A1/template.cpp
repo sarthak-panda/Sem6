@@ -192,7 +192,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
         #pragma omp single
         {
             for (int o = 0; o < k - 1; o++) {
-                std::unordered_set<std::pair<int, int>> toErase;  // Store keys to erase later
+                std::vector<std::pair<int, int>> toErase;  // Store keys to erase later
                 
                 #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, P, B, toErase)
                 for (int i = 0; i < n / m; i++) {
@@ -229,7 +229,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
     
                         if (!nonZeroOccured) {
                             #pragma omp critical
-                            toErase.insert({i, j});
+                            toErase.push_back({i, j});
                         }
                     }
                 }
