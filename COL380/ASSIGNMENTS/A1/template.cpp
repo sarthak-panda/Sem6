@@ -210,7 +210,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                                 for (int y = 0; y < m; y++) {
                                     for (int z = 0; z < m; z++) {
                                         int value=blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
-                                        temp_result[{i, j}][x][y] += value;
+                                        temp_result[x][y] += value;
                                         // cout<<x<<" "<<y<<" "<<z<<" "<<value<<endl;
                                         // cout<<value<<endl;
                                         //if k=2, we need to calculate row statistics for each row
