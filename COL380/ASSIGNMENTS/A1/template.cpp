@@ -7,6 +7,7 @@
 #include <random>
 #include <algorithm>
 #include <omp.h>
+#include <unordered_set>
 #include "check.h"
 
 using namespace std;
