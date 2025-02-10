@@ -196,7 +196,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                 for (int j = 0; j < n/m; j++) {
                     #pragma omp task
                     {
-                        result[{i, j}]=std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
+                        std::vector<std::vector<int>> temp_result(m, std::vector<int>(m, 0));
                         bool nonZeroOccured = false;
                         for (int l = 0; l < n/m; l++) {
                             //block multiplication
@@ -210,7 +210,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                                 for (int y = 0; y < m; y++) {
                                     for (int z = 0; z < m; z++) {
                                         int value=blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
-                                        result[{i, j}][x][y] += value;
+                                        temp_result[{i, j}][x][y] += value;
                                         // cout<<x<<" "<<y<<" "<<z<<" "<<value<<endl;
                                         // cout<<value<<endl;
                                         //if k=2, we need to calculate row statistics for each row
@@ -222,8 +222,9 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                                 }
                             }
                         }
-                        if (!nonZeroOccured) {
-                            result.erase({i, j});
+                        if (nonZeroOccured) {
+                            #pragma omp critical
+                            result[{i, j}] = std::move(temp_result);
                         }
                     }
                 }
