@@ -186,53 +186,67 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
     //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
     map<pair<int, int>, vector<vector<int>>> blocks_dash = blocks;
-    #pragma omp parallel//to if with black box
-    #pragma omp single // to if with black box
+    #pragma omp parallel
     {
-        for (int o=0;o<k-1;o++){
-            //A^k = A^(k-1) * A
-            // #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, P, B) //to if with black box
-            for (int i = 0; i < n/m; i++) {
-                for (int j = 0; j < n/m; j++) {
-                    #pragma omp task
-                    {
-                        std::vector<std::vector<int>> temp_result(m, std::vector<int>(m, 0));
+        #pragma omp single
+        {
+            for (int o = 0; o < k - 1; o++) {
+                std::unordered_set<std::pair<int, int>> toErase;  // Store keys to erase later
+                
+                #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, P, B, toErase)
+                for (int i = 0; i < n / m; i++) {
+                    for (int j = 0; j < n / m; j++) {
                         bool nonZeroOccured = false;
-                        for (int l = 0; l < n/m; l++) {
-                            //block multiplication
-                            //if either of block not present, continue
+    
+                        // Ensure only one thread initializes `result[{i, j}]`
+                        #pragma omp critical
+                        result[{i, j}] = std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
+    
+                        for (int l = 0; l < n / m; l++) {
                             if (blocks_dash.find({i, l}) == blocks_dash.end() || blocks.find({l, j}) == blocks.end()) {
                                 continue;
                             }
-                            //ice al entries are positive , so we can assume if two non zero blocks are multiplied, the result is non zero
+    
                             nonZeroOccured = true;
+    
                             for (int x = 0; x < m; x++) {
                                 for (int y = 0; y < m; y++) {
                                     for (int z = 0; z < m; z++) {
-                                        int value=blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
-                                        temp_result[x][y] += value;
-                                        // cout<<x<<" "<<y<<" "<<z<<" "<<value<<endl;
-                                        // cout<<value<<endl;
-                                        //if k=2, we need to calculate row statistics for each row
-                                        if (k == 2 && value!=0) {
+                                        int value = blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
+    
+                                        #pragma omp atomic update
+                                        result[{i, j}][x][y] += value;
+    
+                                        if (k == 2 && value != 0) {
                                             #pragma omp atomic update
-                                                P[i*m + x] += 1;
+                                            P[i * m + x] += 1;
                                         }
                                     }
                                 }
                             }
                         }
-                        if (nonZeroOccured) {
+    
+                        if (!nonZeroOccured) {
                             #pragma omp critical
-                            result[{i, j}] = std::move(temp_result);
+                            toErase.insert({i, j});
                         }
                     }
                 }
+    
+                #pragma omp taskwait // Ensure all tasks complete before erasing
+    
+                // Remove empty blocks outside the parallel region
+                for (auto &key : toErase) {
+                    result.erase(key);
+                }
+    
+                // Copy result to blocks_dash (Ensure single-thread execution)
+                #pragma omp single
+                blocks_dash = result;
             }
-            //copy result to blocks_dash
-            blocks_dash = result;
         }
     }
+        
     //let us see how we can genralize the above code for any k to compute A^k
     //also note for k>2 we do not need to calculate row statistics
     //let us see how can we calculate row statistics
