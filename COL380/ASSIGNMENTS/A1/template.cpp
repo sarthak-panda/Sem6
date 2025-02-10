@@ -220,9 +220,9 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                             }
                         }
                     }
-                    if (!nonZeroOccured) {
-                        result.erase({i, j});
-                    }
+                    // if (!nonZeroOccured) {
+                    //     result.erase({i, j});
+                    // }
                 }
             }
             //copy result to blocks_dash
