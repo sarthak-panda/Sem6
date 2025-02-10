@@ -241,8 +241,6 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                     result.erase(key);
                 }
     
-                // Copy result to blocks_dash (Ensure single-thread execution)
-                #pragma omp single
                 blocks_dash = result;
             }
         }
