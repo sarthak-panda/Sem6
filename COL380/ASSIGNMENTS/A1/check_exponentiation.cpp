@@ -4,6 +4,7 @@
 #include <vector>
 #include <filesystem>
 #include <string>
+#include "check.h"
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -59,4 +60,27 @@ bool check(map<pair<int, int>, vector<vector<int>>>& matrix2, int k, int m) {
     }
 
     return true;
+}
+
+int main() {
+    int n = 1000;
+    int m = 50;
+    int b = 60;
+    int k = 2;
+
+    srand(time(0));
+
+    string bin_filename = "precomputed_result/bin/mat_exp_" + to_string(1) + ".bin";
+    map<pair<int, int>, vector<vector<int>>> blocks = load_bin(bin_filename, m);
+    
+    vector<float> s = matmul(blocks, n, m, k);
+
+    bool res = check(blocks, k, m);
+    if(res)
+        cout<<"Your function computed the square correctly\n";
+    else
+        cout<<"Your function did NOT compute the square correctly\n";
+    cout << "Size of S = " << s.size()<<endl;
+
+    return 0;
 }
