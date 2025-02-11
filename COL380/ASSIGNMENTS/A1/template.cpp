@@ -187,21 +187,28 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
     //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
     map<pair<int, int>, vector<vector<int>>> blocks_dash = blocks;
+    std::vector<std::pair<int, int>> keys1, keys2;
+    for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
+    for (const auto &entry : blocks) keys2.push_back(entry.first);
+    size_t n1 = keys1.size();
+    size_t n2 = keys2.size();
     #pragma omp parallel
     {
         #pragma omp single
         {
             for (int o = 0; o < k - 1; o++) {
-                #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, P, B, toErase)
-                for (auto &entry : blocks_dash) {
-                    for (auto &entry2 : blocks) {
-                        int i = entry.first.first;
-                        int l1 = entry.first.second;
-                        int l2 = entry2.first.first;
-                        int j = entry2.first.second;
+                #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, keys1, keys2, n1, n2, m, n, k, P) //to if with black box
+                for (size_t i_loop = 0; i_loop < n1; i_loop++) {
+                    for (size_t j_loop = 0; j_loop < n2; j_loop++) {
+                        int i = keys1[i_loop].first;
+                        int l1 = keys1[i_loop].second;
+                        int l2 = keys2[j_loop].first;
+                        int j = keys2[j_loop].second;
                         if(l1!=l2){
                             continue;
                         }
+                        auto &entry = blocks_dash[keys1[i_loop]];
+                        auto &entry2 = blocks[keys2[j_loop]];
                         int l=l1;
                         // Ensure only one thread initializes `result[{i, j}]`
                         //#pragma omp critical
@@ -209,7 +216,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                         for (int x = 0; x < m; x++) {
                             for (int y = 0; y < m; y++) {
                                 for (int z = 0; z < m; z++) {
-                                    int value = blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
+                                    int value = entry[x][z] * entry2[z][y];
                                     //#pragma omp atomic update
                                     temp_result[x][y] += value;
                                     if (k == 2 && value != 0) {
@@ -237,6 +244,12 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                 }
                 #pragma omp taskwait // Ensure all tasks complete before erasing
                 blocks_dash = result;
+                result.clear();
+                std::vector<std::pair<int, int>> keys1, keys2;
+                for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
+                for (const auto &entry : blocks) keys2.push_back(entry.first);
+                n1 = keys1.size();
+                n2 = keys2.size();
             }
         }
     }
@@ -259,7 +272,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
             row_statistics[i] = (float)P[i] / B[i];
         }
     }
-    blocks = result;
+    blocks = blocks_dash;
     //print blocks
     // for (auto& entry : blocks) {
     //     cout << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
