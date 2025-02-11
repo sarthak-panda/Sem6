@@ -173,7 +173,7 @@ int main() {
     else
         cout<<"You have NOT generated the matrix correctly\n";
 	cout<<"Precomputation Started..."<<endl;
-	generate(blocks,10,m);
+	generate(blocks,100,m);
 	cout<<"Precomputation Ended..."<<endl;
     return 0;
 }

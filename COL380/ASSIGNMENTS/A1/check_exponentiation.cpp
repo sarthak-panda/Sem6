@@ -85,7 +85,7 @@ int main() {
     int n = 1000;
     int m = 50;
     int b = 60;
-    int k = 5;
+    int k = 95;
     bool print_enable=true;
 
     srand(time(0));
