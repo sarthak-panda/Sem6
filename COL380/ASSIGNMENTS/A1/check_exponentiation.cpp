@@ -77,9 +77,9 @@ int main() {
 
     bool res = check(blocks, k, m);
     if(res)
-        cout<<"Your function computed the square correctly\n";
+        cout<<"Your function computed the {"+to_string(k)+"}th power correctly\n";
     else
-        cout<<"Your function did NOT compute the square correctly\n";
+        cout<<"Your function did NOT compute {"+to_string(k)+"}th power correctly\n";
     cout << "Size of S = " << s.size()<<endl;
 
     return 0;
