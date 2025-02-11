@@ -245,7 +245,8 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                 #pragma omp taskwait // Ensure all tasks complete before erasing
                 blocks_dash = result;
                 result.clear();
-                std::vector<std::pair<int, int>> keys1, keys2;
+                keys1.clear();
+                keys2.clear();
                 for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
                 for (const auto &entry : blocks) keys2.push_back(entry.first);
                 n1 = keys1.size();
