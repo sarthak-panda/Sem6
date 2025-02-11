@@ -62,11 +62,31 @@ bool check(map<pair<int, int>, vector<vector<int>>>& matrix2, int k, int m) {
     return true;
 }
 
+void save_csv(const map<pair<int, int>, vector<vector<int>>>& matrix, const string& filename) {
+    ofstream file(filename);
+    if (!file) {
+        cerr << "Error opening file: " << filename << endl;
+        return;
+    }
+
+    for (auto& entry : matrix) {
+        file << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+        for (auto& row : entry.second) {
+            for (int val : row) {
+                file << val << " ";
+            }
+            file << "\n";
+        }
+    }
+    file.close();
+}
+
 int main() {
     int n = 1000;
     int m = 50;
     int b = 60;
-    int k = 2;
+    int k = 5;
+    bool print_enable=true;
 
     srand(time(0));
 
@@ -81,6 +101,10 @@ int main() {
     else
         cout<<"Your function did NOT compute {"+to_string(k)+"}th power correctly\n";
     cout << "Size of S = " << s.size()<<endl;
+    if (print_enable){
+        fs::create_directories("results");
+        save_csv(blocks,"results/exp_"+to_string(k)+".csv");
+    }
 
     return 0;
 }
