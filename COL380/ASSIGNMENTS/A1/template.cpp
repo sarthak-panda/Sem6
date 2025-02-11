@@ -420,8 +420,14 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                 k=k/2;
             }else{
                 map<pair<int, int>, vector<vector<int>>>left=blocks;
-                matmul_multiply(left,temp,n,m,false);//temp got updated
-                left=blocks;
+                if(temp_is_identity){
+                    temp=blocks;
+                    temp_is_identity=false;
+                }
+                else{
+                    matmul_multiply(left,temp,n,m,false);//temp got updated
+                    left=blocks;
+                }
                 matmul_multiply(left,blocks,n,m,false);//blocks got updated
                 k=k/2;
             }
