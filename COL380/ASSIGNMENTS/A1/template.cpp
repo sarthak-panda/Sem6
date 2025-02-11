@@ -305,7 +305,7 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     {
         #pragma omp single
         {
-            #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, keys1, keys2, n1, n2, m, n, k, P, stats_needed) //to if with black box
+            #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, keys1, keys2, n1, n2, m, n, P, stats_needed) //to if with black box
             for (size_t i_loop = 0; i_loop < n1; i_loop++) {
                 for (size_t j_loop = 0; j_loop < n2; j_loop++) {
                     int i = keys1[i_loop].first;
