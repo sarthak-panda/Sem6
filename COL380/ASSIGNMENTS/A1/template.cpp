@@ -192,55 +192,50 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
         #pragma omp single
         {
             for (int o = 0; o < k - 1; o++) {
-                std::vector<std::pair<int, int>> toErase;  // Store keys to erase later
-                
                 #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, P, B, toErase)
-                for (int i = 0; i < n / m; i++) {
-                    for (int j = 0; j < n / m; j++) {
-                        bool nonZeroOccured = false;
-    
+                for (auto &entry : blocks_dash) {
+                    for (auto &entry2 : blocks) {
+                        int i = entry.first.first;
+                        int l1 = entry.first.second;
+                        int l2 = entry2.first.first;
+                        int j = entry2.first.second;
+                        if(l1!=l2){
+                            continue;
+                        }
+                        int l=l1;
                         // Ensure only one thread initializes `result[{i, j}]`
-                        #pragma omp critical
-                        result[{i, j}] = std::vector<std::vector<int>>(m, std::vector<int>(m, 0));
-    
-                        for (int l = 0; l < n / m; l++) {
-                            if (blocks_dash.find({i, l}) == blocks_dash.end() || blocks.find({l, j}) == blocks.end()) {
-                                continue;
-                            }
-    
-                            nonZeroOccured = true;
-    
-                            for (int x = 0; x < m; x++) {
-                                for (int y = 0; y < m; y++) {
-                                    for (int z = 0; z < m; z++) {
-                                        int value = blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
-    
+                        //#pragma omp critical
+                        std::vector<std::vector<int>>temp_result(m, std::vector<int>(m, 0));
+                        for (int x = 0; x < m; x++) {
+                            for (int y = 0; y < m; y++) {
+                                for (int z = 0; z < m; z++) {
+                                    int value = blocks_dash[{i, l}][x][z] * blocks[{l, j}][z][y];
+                                    //#pragma omp atomic update
+                                    temp_result[x][y] += value;
+                                    if (k == 2 && value != 0) {
                                         #pragma omp atomic update
-                                        result[{i, j}][x][y] += value;
-    
-                                        if (k == 2 && value != 0) {
-                                            #pragma omp atomic update
-                                            P[i * m + x] += 1;
-                                        }
+                                        P[i * m + x] += 1;
                                     }
                                 }
                             }
                         }
-    
-                        if (!nonZeroOccured) {
-                            #pragma omp critical
-                            toErase.push_back({i, j});
+                        // Ensure only one thread writes to `result[{i, j}]`
+                        #pragma omp critical 
+                        {
+                            if (result.find({i, j}) == result.end()) {
+                                result[{i, j}] = temp_result;
+                            }
+                            else {
+                                for (int x = 0; x < m; x++) {
+                                    for (int y = 0; y < m; y++) {
+                                        result[{i, j}][x][y] += temp_result[x][y];
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-    
                 #pragma omp taskwait // Ensure all tasks complete before erasing
-    
-                // Remove empty blocks outside the parallel region
-                for (auto &key : toErase) {
-                    result.erase(key);
-                }
-    
                 blocks_dash = result;
             }
         }
