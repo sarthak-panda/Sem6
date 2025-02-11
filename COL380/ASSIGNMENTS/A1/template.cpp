@@ -293,7 +293,6 @@ vector<float> matmul_multiply(map<pair<int, int>, vector<vector<int>>>& blocks_d
     vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
     vector<int> P(n, 0);
     vector<int> B(n, 0);
-    removeMultiplesOf5_own(blocks);
     //let us first try a naive approach to multiply the matrices k=2 case
     //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
