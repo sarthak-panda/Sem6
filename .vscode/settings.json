@@ -221,6 +221,7 @@
 	"files.associations": {
 		"vector": "cpp",
 		"utility": "cpp",
-		"map": "cpp"
+		"map": "cpp",
+		"iostream": "cpp"
 	}
 }
