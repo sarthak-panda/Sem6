@@ -7,7 +7,7 @@
 #include <random>
 #include <algorithm>
 #include <omp.h>
-#include <unordered_set>
+#include <set>
 #include "check.h"
 
 using namespace std;
@@ -51,14 +51,16 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(0, (n/m)-1);
     vector<pair<int, int>> keys;
+    set<pair<int, int>> keySet;
     //let us generate b random pairs of i and j
     for (int i = 0; i < b; i++) {
         pair<int, int> key = {dist(gen), dist(gen)};
         //if key in keys, generate another key
-        while (find(keys.begin(), keys.end(), key) != keys.end()) {
+        while (keySet.find(key) != keySet.end()) {//inefficient : find(keys.begin(), keys.end(), key) != keys.end()
             key = {dist(gen), dist(gen)};
         }
         keys.push_back(key);
+        keySet.insert(key);
     }
     std::uniform_int_distribution<int> dist_block(0, 256);
     //now we generate the blocks parallely using pragma omp task
@@ -178,7 +180,7 @@ vector<float> matmul_serial(map<pair<int, int>, vector<vector<int>>>& blocks, in
     return (k == 2) ? row_statistics : vector<float>();
 }
 
-vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
+vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
     vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
     vector<int> P(n, 0);
     vector<int> B(n, 0);
@@ -285,4 +287,148 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
     //     }
     // }
     return (k == 2) ? row_statistics : vector<float>();
+}
+
+vector<float> matmul_multiply(map<pair<int, int>, vector<vector<int>>>& blocks_dash,map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, bool stats_needed) {
+    vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
+    vector<int> P(n, 0);
+    vector<int> B(n, 0);
+    removeMultiplesOf5_own(blocks);
+    //let us first try a naive approach to multiply the matrices k=2 case
+    //very basic sequential algorithm
+    map<pair<int, int>, vector<vector<int>>> result;
+    std::vector<std::pair<int, int>> keys1, keys2;
+    for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
+    for (const auto &entry : blocks) keys2.push_back(entry.first);
+    size_t n1 = keys1.size();
+    size_t n2 = keys2.size();
+    int k=2;
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            for (int o = 0; o < k - 1; o++) {
+                #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, keys1, keys2, n1, n2, m, n, k, P, stats_needed) //to if with black box
+                for (size_t i_loop = 0; i_loop < n1; i_loop++) {
+                    for (size_t j_loop = 0; j_loop < n2; j_loop++) {
+                        int i = keys1[i_loop].first;
+                        int l1 = keys1[i_loop].second;
+                        int l2 = keys2[j_loop].first;
+                        int j = keys2[j_loop].second;
+                        if(l1!=l2){
+                            continue;
+                        }
+                        auto &entry = blocks_dash[keys1[i_loop]];
+                        auto &entry2 = blocks[keys2[j_loop]];
+                        int l=l1;
+                        // Ensure only one thread initializes `result[{i, j}]`
+                        //#pragma omp critical
+                        std::vector<std::vector<int>>temp_result(m, std::vector<int>(m, 0));
+                        for (int x = 0; x < m; x++) {
+                            for (int y = 0; y < m; y++) {
+                                for (int z = 0; z < m; z++) {
+                                    int value = entry[x][z] * entry2[z][y];
+                                    //#pragma omp atomic update
+                                    temp_result[x][y] += value;
+                                    if (stats_needed && value != 0) {
+                                        #pragma omp atomic update
+                                        P[i * m + x] += 1;
+                                    }
+                                }
+                            }
+                        }
+                        // Ensure only one thread writes to `result[{i, j}]`
+                        #pragma omp critical 
+                        {
+                            if (result.find({i, j}) == result.end()) {
+                                result[{i, j}] = temp_result;
+                            }
+                            else {
+                                for (int x = 0; x < m; x++) {
+                                    for (int y = 0; y < m; y++) {
+                                        result[{i, j}][x][y] += temp_result[x][y];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                #pragma omp taskwait // Ensure all tasks complete before erasing
+                blocks_dash = result;
+                result.clear();
+                keys1.clear();
+                keys2.clear();
+                for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
+                for (const auto &entry : blocks) keys2.push_back(entry.first);
+                n1 = keys1.size();
+                n2 = keys2.size();
+            }
+        }
+    }
+        
+    //let us see how we can genralize the above code for any k to compute A^k
+    //also note for k>2 we do not need to calculate row statistics
+    //let us see how can we calculate row statistics
+    if (stats_needed){
+        for (int i = 0; i < n/m; i++) {
+            for (int j = 0; j < n/m; j++) {
+                if (blocks.find({i, j}) == blocks.end()) {
+                    continue;
+                }
+                for (int x = 0; x < m; x++) {
+                    B[i*m + x] += m;
+                }
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            row_statistics[i] = (float)P[i] / B[i];
+        }
+    }
+    blocks = blocks_dash;//blocks store our final result
+    //print blocks
+    // for (auto& entry : blocks) {
+    //     cout << "Block (" << entry.first.first << ", " << entry.first.second << "):\n";
+    //     for (auto& row : entry.second) {
+    //         for (int val : row) {
+    //             cout << val << " ";
+    //         }
+    //         cout << "\n";
+    //     }
+    // }
+    return (stats_needed) ? row_statistics : vector<float>();
+}
+
+vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
+    //we will implement fast exponentiation
+    removeMultiplesOf5_own(blocks);
+    if (k==1){
+        //do nothing to blocks
+        return vector<float>();
+    }
+    else if (k==2){
+        map<pair<int, int>, vector<vector<int>>>left=blocks;
+        vector<float> s = matmul_multiply(left,blocks,n,m,true);//blocks got updated
+        return s;
+    }
+    else {
+        map<pair<int, int>, vector<vector<int>>>temp;
+        bool temp_is_identity=true;
+        while (k!=0)
+        {
+            if(k%2==0){
+                map<pair<int, int>, vector<vector<int>>>left=blocks;
+                matmul_multiply(left,blocks,n,m,false);//blocks got updated
+                k=k/2;
+            }else{
+                map<pair<int, int>, vector<vector<int>>>left=blocks;
+                matmul_multiply(left,temp,n,m,false);//temp got updated
+                left=blocks;
+                matmul_multiply(left,blocks,n,m,false);//blocks got updated
+                k=k/2;
+            }
+        }
+        blocks=temp;
+    }
+    
+    return vector<float>();
 }
