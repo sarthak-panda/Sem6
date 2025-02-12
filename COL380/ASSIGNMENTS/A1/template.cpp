@@ -62,7 +62,7 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
         keys.push_back(key);
         keySet.insert(key);
     }
-    std::uniform_int_distribution<int> dist_block(0, 256);
+    std::uniform_int_distribution<int> dist_block(0, 255);
     //now we generate the blocks parallely using pragma omp task
     #pragma omp parallel if(black_box())//to if with black box
     #pragma omp single //if(black_box())//to if with black box
@@ -219,6 +219,7 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
                             for (int y = 0; y < m; y++) {
                                 for (int z = 0; z < m; z++) {
                                     int value = entry[x][z] * entry2[z][y];
+                                    value%=256;
                                     //#pragma omp atomic update
                                     temp_result[x][y] += value;
                                     if (k == 2 && value != 0) {
@@ -238,6 +239,7 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
                                 for (int x = 0; x < m; x++) {
                                     for (int y = 0; y < m; y++) {
                                         result[{i, j}][x][y] += temp_result[x][y];
+                                        result[{i,j}][x][y]%=256;
                                     }
                                 }
                             }
@@ -399,6 +401,28 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     return (stats_needed) ? row_statistics : vector<float>();
 }
 
+bool has_non_zero_element(vector<vector<int>>& block) {
+    for (auto& row : block)
+        for (int val : row)
+            if (val != 0)
+                return true;
+    return false;
+}
+
+void remove_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
+    std::vector<std::pair<int, int>> keys_to_erase;
+    for (auto& entry : blocks) {
+        vector<vector<int>>& block = entry.second;
+
+        if (!has_non_zero_element(block))
+            keys_to_erase.push_back(entry.first);
+    }
+    for (auto& key : keys_to_erase) {
+        blocks.erase(key);
+    }
+    return;
+}
+
 vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
     //we will implement fast exponentiation
     removeMultiplesOf5_own(blocks);
@@ -432,6 +456,7 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
             left=blocks;
         }
         blocks=temp;
+        remove_zero_blocks(blocks);
     }
     return vector<float>();
 }
