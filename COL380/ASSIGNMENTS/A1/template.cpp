@@ -79,26 +79,54 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
         //     }
         //     matrix_map[key] = block;
         // }
-        for (int k = 0; k < b; k++) {
-            #pragma omp task shared(matrix_map, keys) if(black_box())//to if with black box
-            {
-                pair<int, int> key = keys[k];
-                vector<vector<int>> block(m, vector<int>(m, 0));
-                bool nonZeroOccured = false;
-                while (!nonZeroOccured){
-                    for (int i = 0; i < m; i++){
-                        for (int j = 0; j < m; j++){
-                            block[i][j] = dist_block(gen);
-                            if (block[i][j] != 0) {
-                                nonZeroOccured = true;
+            // for (int k = 0; k < b; k++) {
+            //     #pragma omp task shared(matrix_map, keys) if(black_box())//to if with black box
+            //     {
+            //         pair<int, int> key = keys[k];
+            //         vector<vector<int>> block(m, vector<int>(m, 0));
+            //         bool nonZeroOccured = false;
+            //         while (!nonZeroOccured){
+            //             for (int i = 0; i < m; i++){
+            //                 for (int j = 0; j < m; j++){
+            //                     block[i][j] = dist_block(gen);
+            //                     if (block[i][j] != 0) {
+            //                         nonZeroOccured = true;
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //         #pragma omp critical
+            //         matrix_map[key] = block;
+            //     }
+            // }
+            // #pragma omp taskwait
+            for (int k = 0; k < b; k++) {
+                #pragma omp task shared(matrix_map, keys) firstprivate(k) if(black_box())
+                {
+                    pair<int, int> key = keys[k];
+                    vector<vector<int>> block(m, vector<int>(m, 0));
+                    bool nonZeroOccured = false;
+                    // Each task should have its own RNG to avoid race conditions on 'gen'
+                    // Assuming 'dist_block' is thread-safe or each has its own distribution
+                    //std::random_device rd;
+                    //std::mt19937 task_gen(rd())/* initialize per-task generator */;
+                    while (!nonZeroOccured) {
+                        for (int i = 0; i < m; i++) {
+                            for (int j = 0; j < m; j++) {
+                                block[i][j] = dist_block(gen); // Use task-local generator
+                                if (block[i][j] != 0) {
+                                    nonZeroOccured = true;
+                                }
                             }
                         }
                     }
+                    #pragma omp critical // Protect map insertion
+                    {
+                        matrix_map[key] = block;
+                    }
                 }
-                matrix_map[key] = block;
             }
-        }
-        #pragma omp taskwait
+            #pragma omp taskwait
     }
     return matrix_map;
 }
