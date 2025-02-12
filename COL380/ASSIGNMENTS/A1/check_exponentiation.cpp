@@ -89,7 +89,7 @@ int main() {
     int n = 1000;
     int m = 50;
     int b = 60;
-    int k = 95;
+    int k = 2;
     bool print_enable=true;
 
     srand(time(0));
@@ -105,9 +105,22 @@ int main() {
     else
         cout<<"Your function did NOT compute {"+to_string(k)+"}th power correctly\n";
     cout << "Size of S = " << s.size()<<endl;
+    cout<<s[0]<<endl;
     if (print_enable){
         fs::create_directories("results");
         save_csv(blocks,"results/exp_"+to_string(k)+".csv");
+        std::ofstream outfile("output.txt"); // Open file for writing
+        if (!outfile) {
+            std::cerr << "Error opening file!" << std::endl;
+            return 1; // Return error code
+        }
+
+        for (const float& num : s) {
+            outfile << num << " "; // Write each float separated by space
+        }
+
+        outfile.close(); // Close file
+        std::cout << "Vector written to output.txt successfully!" << std::endl;        
     }
 
     return 0;
