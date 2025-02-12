@@ -86,14 +86,14 @@ bool black_box() {
 }
 
 int main() {
-    // int n = 1000;
-    // int m = 50;
-    // int b = 60;
-    // int k = 2;
-    int n=9;
-    int m=3;
-    int b=3;
-    int k=2;    
+    int n = 1000;
+    int m = 50;
+    int b = 60;
+    int k = 2;
+    // int n=9;
+    // int m=3;
+    // int b=3;
+    // int k=2;    
     bool print_enable=true;
 
     srand(time(0));

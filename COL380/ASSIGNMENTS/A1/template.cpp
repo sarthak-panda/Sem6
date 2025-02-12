@@ -98,6 +98,7 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
                 matrix_map[key] = block;
             }
         }
+        #pragma omp taskwait
     }
     return matrix_map;
 }
@@ -401,7 +402,7 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     return (stats_needed) ? row_statistics : vector<float>();
 }
 
-bool has_non_zero_element(vector<vector<int>>& block) {
+bool has_non_zero_element_own(vector<vector<int>>& block) {
     for (auto& row : block)
         for (int val : row)
             if (val != 0)
@@ -414,7 +415,7 @@ void remove_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     for (auto& entry : blocks) {
         vector<vector<int>>& block = entry.second;
 
-        if (!has_non_zero_element(block))
+        if (!has_non_zero_element_own(block))
             keys_to_erase.push_back(entry.first);
     }
     for (auto& key : keys_to_erase) {

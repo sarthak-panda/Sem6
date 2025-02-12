@@ -168,24 +168,29 @@ int main() {
     // int m = 50;
     // int b = 60;
     // int k = 2;
-    int n=9;
-    int m=3;
-    int b=3;
-    int k=2;
+    // int n=9;
+    // int m=3;
+    // int b=3;
+    // int k=2;
+    int n = 100000;
+    int m = 16;
+    int b = 4096;
+    int k = 2;
 
     srand(time(0));
     map<pair<int, int>, vector<vector<int>>> my_blocks;
     map<pair<int, int>, vector<vector<int>>> blocks = generate_matrix(n, m, b);
-    my_blocks[{0, 0}] = {{1, 0, 2}, {0, 3, 0}, {2, 0, 4}};
-    my_blocks[{0, 2}] = {{0, 0, 0}, {0, 3, 1}, {0, 0, 5}};
-    my_blocks[{2, 0}] = {{0, 0, 0}, {0, 3, 0}, {0, 1, 5}};
-    blocks=my_blocks;    
+    // my_blocks[{0, 0}] = {{1, 0, 2}, {0, 3, 0}, {2, 0, 4}};
+    // my_blocks[{0, 2}] = {{0, 0, 0}, {0, 3, 1}, {0, 0, 5}};
+    // my_blocks[{2, 0}] = {{0, 0, 0}, {0, 3, 0}, {0, 1, 5}};
+    // blocks=my_blocks;    
+    cout<<blocks.size()<<endl;
     if(count_non_zero_blocks(blocks)==blocks.size() && blocks.size()>=b)
         cout<<"You have generated the matrix correctly\n";
     else
         cout<<"You have NOT generated the matrix correctly\n";
 	cout<<"Precomputation Started..."<<endl;
-	generate(blocks,100,m);
+	generate(blocks,2,m);
 	cout<<"Precomputation Ended..."<<endl;
     return 0;
 }
