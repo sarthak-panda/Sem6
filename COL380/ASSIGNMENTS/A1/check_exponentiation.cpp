@@ -97,10 +97,12 @@ int main() {
     bool print_enable=true;
 
     srand(time(0));
+    cout<<"ij"<<endl;
 
     string bin_filename = "precomputed_result/bin/mat_exp_" + to_string(1) + ".bin";
     map<pair<int, int>, vector<vector<int>>> blocks = load_bin(bin_filename, m);
-    
+    cout<<"jiih"<<endl;
+    cout<<blocks.size()<<endl;
     vector<float> s = matmul(blocks, n, m, k);
 
     bool res = check(blocks, k, m);
@@ -109,7 +111,7 @@ int main() {
     else
         cout<<"Your function did NOT compute {"+to_string(k)+"}th power correctly\n";
     cout << "Size of S = " << s.size()<<endl;
-    cout<<s[0]<<endl;
+    //cout<<s[0]<<endl;
     if (print_enable){
         fs::create_directories("results");
         save_csv(blocks,"results/exp_"+to_string(k)+".csv");

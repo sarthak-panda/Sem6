@@ -108,12 +108,12 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
                     bool nonZeroOccured = false;
                     // Each task should have its own RNG to avoid race conditions on 'gen'
                     // Assuming 'dist_block' is thread-safe or each has its own distribution
-                    //std::random_device rd;
-                    //std::mt19937 task_gen(rd())/* initialize per-task generator */;
+                    std::random_device rd;
+                    std::mt19937 task_gen(rd())/* initialize per-task generator */;
                     while (!nonZeroOccured) {
                         for (int i = 0; i < m; i++) {
                             for (int j = 0; j < m; j++) {
-                                block[i][j] = dist_block(gen); // Use task-local generator
+                                block[i][j] = dist_block(task_gen); // Use task-local generator
                                 if (block[i][j] != 0) {
                                     nonZeroOccured = true;
                                 }
