@@ -300,31 +300,31 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     //let us first try a naive approach to multiply the matrices k=2 case
     //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
-    // std::vector<std::pair<int, int>> keys1, keys2;
-    // for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
-    // for (const auto &entry : blocks) keys2.push_back(entry.first);
-    std::vector<std::pair<int, int>> keys1(blocks_dash.size()), keys2(blocks.size());
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            // Task for extracting keys1
-            int index = 0;
-            for (const auto &entry : blocks_dash) {
-                #pragma omp task firstprivate(index, entry)
-                keys1[index] = entry.first;
-                index++;
-            }
+    std::vector<std::pair<int, int>> keys1, keys2;
+    for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
+    for (const auto &entry : blocks) keys2.push_back(entry.first);
+    // std::vector<std::pair<int, int>> keys1(blocks_dash.size()), keys2(blocks.size());
+    // #pragma omp parallel
+    // {
+    //     #pragma omp single
+    //     {
+    //         // Task for extracting keys1
+    //         int index = 0;
+    //         for (const auto &entry : blocks_dash) {
+    //             #pragma omp task firstprivate(index, entry)
+    //             keys1[index] = entry.first;
+    //             index++;
+    //         }
 
-            // Task for extracting keys2
-            index = 0;
-            for (const auto &entry : blocks) {
-                #pragma omp task firstprivate(index, entry)
-                keys2[index] = entry.first;
-                index++;
-            }
-        }
-    }    
+    //         // Task for extracting keys2
+    //         index = 0;
+    //         for (const auto &entry : blocks) {
+    //             #pragma omp task firstprivate(index, entry)
+    //             keys2[index] = entry.first;
+    //             index++;
+    //         }
+    //     }
+    // }    
     size_t n1 = keys1.size();
     size_t n2 = keys2.size();
     #pragma omp parallel if(black_box())
