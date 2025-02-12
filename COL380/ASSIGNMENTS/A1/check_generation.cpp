@@ -173,8 +173,8 @@ int main() {
     // int b=3;
     // int k=2;
     int n = 100000;
-    int m = 16;
-    int b = 4096;
+    int m = 8;
+    int b = 8095;
     int k = 2;
 
     srand(time(0));
@@ -190,7 +190,7 @@ int main() {
     else
         cout<<"You have NOT generated the matrix correctly\n";
 	cout<<"Precomputation Started..."<<endl;
-	generate(blocks,2,m);
+	generate(blocks,20,m);
 	cout<<"Precomputation Ended..."<<endl;
     return 0;
 }

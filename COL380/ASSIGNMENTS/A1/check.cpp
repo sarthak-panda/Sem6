@@ -232,10 +232,10 @@ int count_non_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
 }
 
 int main() {
-    int n = 1000;
-    int m = 50;
-    int b = 60;
-    int k = 2;
+    int n = 100000;
+    int m = 8;
+    int b = 8095;
+    int k = 9;
 
     srand(time(0));
 

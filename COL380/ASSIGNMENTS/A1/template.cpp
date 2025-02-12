@@ -248,7 +248,7 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
                             for (int y = 0; y < m; y++) {
                                 for (int z = 0; z < m; z++) {
                                     int value = entry[x][z] * entry2[z][y];
-                                    value%=256;
+                                    //value%=256;
                                     //#pragma omp atomic update
                                     temp_result[x][y] += value;
                                     if (k == 2 && value != 0) {
@@ -268,7 +268,7 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
                                 for (int x = 0; x < m; x++) {
                                     for (int y = 0; y < m; y++) {
                                         result[{i, j}][x][y] += temp_result[x][y];
-                                        result[{i,j}][x][y]%=256;
+                                        //result[{i,j}][x][y]%=256;
                                     }
                                 }
                             }
