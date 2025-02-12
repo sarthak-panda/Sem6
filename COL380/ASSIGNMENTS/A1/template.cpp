@@ -410,6 +410,9 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
         map<pair<int, int>, vector<vector<int>>>temp,left;
         left=blocks;
         bool temp_is_identity=true;
+        #pragma omp parallel  // Create parallel team
+        #pragma omp single    // Only one thread executes the loop and creates tasks
+        {
         while (k!=0)
         {
             if(k%2==1){
@@ -418,15 +421,19 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                     temp_is_identity=false;
                 }
                 else{
+                    #pragma omp task shared(temp, left)
                     matmul_multiply(left,temp,n,m,false);//temp got updated
                 }
                 
             }
+            #pragma omp task shared(blocks, left)
             matmul_multiply(left,blocks,n,m,false);//blocks got updated
+            #pragma omp taskwait
             k=k/2;
             left=blocks;
         }
         blocks=temp;
+        }
     }
     return vector<float>();
 }
