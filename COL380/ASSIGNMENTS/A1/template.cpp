@@ -387,7 +387,11 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
             }
         }
         for (int i = 0; i < n; i++) {
-            row_statistics[i] = (float)P[i] / B[i];
+            if (B[i]==0){
+                row_statistics[i] = (float)P[i] / B[i];
+            }else{
+                row_statistics[i] = 0;
+            }
         }
     }
     blocks = result;
