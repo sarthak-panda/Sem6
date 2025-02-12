@@ -159,6 +159,10 @@ int count_non_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     return non_zero_count;
 }
 
+bool black_box() {
+    return true;
+}
+
 int main() {
     int n = 1000;
     int m = 50;

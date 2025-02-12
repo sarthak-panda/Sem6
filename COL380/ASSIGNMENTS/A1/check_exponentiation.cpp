@@ -81,6 +81,10 @@ void save_csv(const map<pair<int, int>, vector<vector<int>>>& matrix, const stri
     file.close();
 }
 
+bool black_box() {
+    return true;
+}
+
 int main() {
     int n = 1000;
     int m = 50;

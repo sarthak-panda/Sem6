@@ -65,7 +65,7 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
     std::uniform_int_distribution<int> dist_block(0, 256);
     //now we generate the blocks parallely using pragma omp task
     #pragma omp parallel if(black_box())//to if with black box
-    #pragma omp single if(black_box())//to if with black box
+    #pragma omp single //if(black_box())//to if with black box
     {
         // #pragma omp taskloop shared(matrix_map, keys)
         // for (int i=0; i<b; i++){
@@ -196,7 +196,7 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
     size_t n2 = keys2.size();
     #pragma omp parallel if(black_box())
     {
-        #pragma omp single if(black_box())
+        #pragma omp single //if(black_box())
         {
             for (int o = 0; o < k - 1; o++) {
                 #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, keys1, keys2, n1, n2, m, n, k, P) if(black_box()) //to if with black box
@@ -222,14 +222,14 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
                                     //#pragma omp atomic update
                                     temp_result[x][y] += value;
                                     if (k == 2 && value != 0) {
-                                        #pragma omp atomic update if(black_box())
+                                        #pragma omp atomic update //if(black_box())
                                         P[i * m + x] += 1;
                                     }
                                 }
                             }
                         }
                         // Ensure only one thread writes to `result[{i, j}]`
-                        #pragma omp critical if(black_box())
+                        #pragma omp critical //if(black_box())
                         {
                             if (result.find({i, j}) == result.end()) {
                                 result[{i, j}] = temp_result;
@@ -244,7 +244,7 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
                         }
                     }
                 }
-                #pragma omp taskwait if(black_box())// Ensure all tasks complete before erasing
+                #pragma omp taskwait //if(black_box())// Ensure all tasks complete before erasing
                 blocks_dash = result;
                 result.clear();
                 keys1.clear();
@@ -307,7 +307,7 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     size_t n2 = keys2.size();
     #pragma omp parallel if(black_box())
     {
-        #pragma omp single if(black_box())
+        #pragma omp single
         {
             #pragma omp taskloop collapse(2) shared(blocks_dash, blocks, result, keys1, keys2, n1, n2, m, n, P, stats_needed) if(black_box())//to if with black box
             for (size_t i_loop = 0; i_loop < n1; i_loop++) {
@@ -330,13 +330,13 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
                                 //#pragma omp atomic update
                                 temp_result[x][y] += value;
                                 if (stats_needed && value != 0) {
-                                    #pragma omp atomic update if(black_box())
+                                    #pragma omp atomic update
                                     P[i * m + x] += 1;
                                 }
                             }
                         }
                     }
-                    #pragma omp critical if(black_box())
+                    #pragma omp critical
                     {
                         if (result.find({i, j}) == result.end()) {
                             result[{i, j}] = temp_result;
