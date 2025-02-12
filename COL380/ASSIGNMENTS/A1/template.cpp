@@ -290,9 +290,13 @@ vector<float> matmul_parallel_1(map<pair<int, int>, vector<vector<int>>>& blocks
 }
 
 vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& blocks_dash,map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, bool stats_needed) {
-    vector<float> row_statistics(n, 0.0f); // For storing S[i] when k=2
-    vector<int> P(n, 0);
-    vector<int> B(n, 0);
+    vector<float> row_statistics;
+    vector<int> P,B;
+    if(stats_needed){
+        row_statistics=vector<float>(n, 0.0f); // For storing S[i] when k=2
+        P=vector<int>(n, 0);
+        B=vector<int>(n, 0);
+    }
     //let us first try a naive approach to multiply the matrices k=2 case
     //very basic sequential algorithm
     map<pair<int, int>, vector<vector<int>>> result;
