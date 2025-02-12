@@ -375,6 +375,7 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
             }
         }
     }
+    blocks = result;// if B[i] is calculated using output
     if (stats_needed){
         for (int i = 0; i < n/m; i++) {
             for (int j = 0; j < n/m; j++) {
@@ -394,7 +395,7 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
             }
         }
     }
-    blocks = result;
+    //blocks = result; if B[i] is calculated using input
     return (stats_needed) ? row_statistics : vector<float>();
 }
 
