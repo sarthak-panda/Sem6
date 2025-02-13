@@ -25,12 +25,13 @@ CREATE TABLE public.auction (
 	PRIMARY KEY (auction_id),
 	FOREIGN KEY (season_id) REFERENCES public.season (season_id),
 	FOREIGN KEY (player_id) REFERENCES public.player (player_id),
-	FOREIGN KEY (team_id) REFERENCES public.team (team_id)
+	FOREIGN KEY (team_id) REFERENCES public.team (team_id),
+    UNIQUE (player_id, team_id, season_id)
 );
 
 CREATE TABLE public.awards (
 	match_id VARCHAR(20) NOT NULL,
-	award_type VARCHAR(20) NOT NULL,
+	award_type VARCHAR(20) NOT NULL CHECK (award_type IN ('orange_cap', 'purple_cap')),
 	player_id VARCHAR(20) NOT NULL,
     PRIMARY KEY (match_id, award_type),
     FOREIGN KEY (match_id) REFERENCES public.match (match_id),
@@ -58,9 +59,10 @@ CREATE TABLE public.batter_score (
     innings_num SMALLINT NOT NULL,
     ball_num SMALLINT NOT NULL,
     run_scored SMALLINT,
-    type_run VARCHAR(20),
+    type_run VARCHAR(20) CHECK (type_run IN ('running', 'boundary')),
     PRIMARY KEY (match_id, innings_num, over_num, ball_num),
-    FOREIGN KEY (match_id) REFERENCES public.match(match_id)
+    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
+    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
 );
 
 CREATE TABLE public.extras (
@@ -69,14 +71,15 @@ CREATE TABLE public.extras (
     over_num SMALLINT NOT NULL,
     ball_num SMALLINT NOT NULL,
     extra_runs SMALLINT,
-    extra_type VARCHAR(20),
+    extra_type VARCHAR(20) CHECK (extra_type IN ('no_ball', 'wide', 'byes', 'legbyes')),
     PRIMARY KEY (match_id, innings_num, over_num, ball_num),
-    FOREIGN KEY (match_id) REFERENCES public.match(match_id)
+    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
+    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
 );
 
 CREATE TABLE public.match (
     match_id VARCHAR(20) NOT NULL,
-    match_type VARCHAR(20),
+    match_type VARCHAR(20) CHECK (match_type IN ('league', 'playoff', 'knockout')),
     venue VARCHAR(20) NOT NULL,
     team_1_id VARCHAR(20) NOT NULL,
     team_2_id VARCHAR(20) NOT NULL,
@@ -84,9 +87,9 @@ CREATE TABLE public.match (
     season_id VARCHAR(20) NOT NULL,
     win_run_margin SMALLINT,
     win_by_wickets SMALLINT,
-    win_type VARCHAR(20),
-    toss_winner SMALLINT,
-    toss_decide VARCHAR(20),
+    win_type VARCHAR(20) CHECK (win_type IN ('runs', 'wickets', 'draw')),
+    toss_winner SMALLINT CHECK (toss_winner IN (1, 2)),
+    toss_decide VARCHAR(20) CHECK (toss_decide IN ('bowl', 'bat')),
     winner_team_id VARCHAR(20) NOT NULL,
     PRIMARY KEY (match_id),
     FOREIGN KEY (venue) REFERENCES public.team(region),
@@ -96,7 +99,7 @@ CREATE TABLE public.match (
     FOREIGN KEY (winner_team_id) REFERENCES public.team(team_id)
 );
 
-CREATE TABLE public.player (
+CREATE TABLE public.player (--to continue
     player_id VARCHAR(20) NOT NULL,
     player_name VARCHAR(255),
     dob DATE,
@@ -122,7 +125,8 @@ CREATE TABLE public.player_team (
     player_id VARCHAR(20) NOT NULL,
     team_id VARCHAR(20) NOT NULL,
     season_id VARCHAR(20) NOT NULL,
-    PRIMARY KEY (player_id, team_id, season_id)
+    PRIMARY KEY (player_id, team_id, season_id),
+    FOREIGN KEY (player_id, team_id, season_id) REFERENCES public.auction(player_id, team_id, season_id)
 );
 
 CREATE TABLE public.season (
@@ -135,9 +139,9 @@ CREATE TABLE public.season (
 
 CREATE TABLE public.team (
     team_id VARCHAR(20) NOT NULL,
-    team_name VARCHAR(255),
+    team_name VARCHAR(255) UNIQUE,
     coach_name VARCHAR(255),
-    region VARCHAR(20),
+    region VARCHAR(20) UNIQUE,
     PRIMARY KEY (team_id)
 );
 
@@ -152,5 +156,7 @@ CREATE TABLE public.wickets (
     PRIMARY KEY (match_id, innings_num, over_num, ball_num),
     FOREIGN KEY (match_id) REFERENCES public.match(match_id),
     FOREIGN KEY (player_out_id) REFERENCES public.player(player_id),
-    FOREIGN KEY (fielder_id) REFERENCES public.player(player_id)
+    FOREIGN KEY (fielder_id) REFERENCES public.player(player_id),
+    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
 );
+
