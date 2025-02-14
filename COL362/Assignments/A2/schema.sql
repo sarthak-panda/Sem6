@@ -14,6 +14,17 @@ CREATE SCHEMA PUBLIC;
 SET default_tablespace = '';
 SET default_table_access_method = heap;
 
+CREATE OR REPLACE FUNCTION automatic_insertion_into_player_team()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.is_sold = TRUE THEN
+        --i am assuming we do not need to update because only insert after auction done policy
+        INSERT INTO public.player_team VALUES (NEW.player_id,NEW.team_id,NEW.season_id)
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE public.auction (
 	auction_id VARCHAR(20) NOT NULL,
 	season_id VARCHAR(20) NOT NULL,
@@ -28,11 +39,16 @@ CREATE TABLE public.auction (
 	FOREIGN KEY (team_id) REFERENCES public.team (team_id),
     UNIQUE (player_id, team_id, season_id)
     CHECK (
-        (is_sold = FALSE AND sold_price IS NULL)--check with revanth
+        (is_sold = FALSE AND sold_price IS NULL)--check WITH revanth
         OR
         (is_sold = TRUE AND sold_price IS NOT NULL AND team_id IS NOT NULL AND sold_price >= base_price)
     )
 );
+
+CREATE TRIGGER automated_player_team_insertion
+BEFORE INSERT OR UPDATE ON public.auction --check with revanth
+FOR EACH ROW
+EXECUTE FUNCTION automatic_insertion_into_player_team();
 
 CREATE TABLE public.awards (
 	match_id VARCHAR(20) NOT NULL,
@@ -82,6 +98,34 @@ CREATE TABLE public.extras (
     FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
 );
 
+CREATE OR REPLACE FUNCTION match_id_validation()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.match_id !~ '^[a-zA-Z0-9]+[0-9]{3}$' THEN
+        RAISE EXCEPTION 'sequence of match id violated';
+    END IF;
+    season_part := LEFT(NEW.match_id, LENGTH(NEW.match_id) - 3);
+    seq_part := CAST(RIGHT(NEW.match_id, 3) AS INTEGER);
+    IF NEW.season_id <> season_part THEN
+        RAISE EXCEPTION 'sequence of match id violated';
+    END IF;
+    IF seq_part = 1 THEN
+        IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
+            RAISE EXCEPTION 'sequence of match id violated';
+        END IF;
+    ELSE
+        prev_match_id := season_part || LPAD(seq_part - 1::TEXT, 3, '0');
+        IF NOT EXISTS (SELECT 1 FROM public.match WHERE match_id = prev_match_id) THEN
+            RAISE EXCEPTION 'sequence of match id violated';
+        END IF;
+        IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
+            RAISE EXCEPTION 'sequence of match id violated';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE public.match (
     match_id VARCHAR(20) NOT NULL,
     match_type VARCHAR(20) NOT NULL CHECK (match_type IN ('league', 'playoff', 'knockout')),
@@ -104,6 +148,8 @@ CREATE TABLE public.match (
     FOREIGN KEY (winner_team_id) REFERENCES public.team(team_id),
     -- CHECK Constraints for win_type and margins
     CHECK (
+        (win_type IS NULL)
+        OR
         (win_type = 'draw' AND win_run_margin IS NULL AND win_by_wickets IS NULL)
         OR
         (win_type = 'runs' AND win_run_margin IS NOT NULL AND win_by_wickets IS NULL)
@@ -111,6 +157,11 @@ CREATE TABLE public.match (
         (win_type = 'wickets' AND win_run_margin IS NULL AND win_by_wickets IS NOT NULL)
     )    
 );
+
+CREATE TRIGGER automated_match_id_validation
+BEFORE INSERT OR UPDATE ON public.match
+FOR EACH ROW
+EXECUTE FUNCTION match_id_validation();
 
 CREATE TABLE public.player (
     player_id VARCHAR(20) NOT NULL,
@@ -125,7 +176,7 @@ CREATE TABLE public.player (
 CREATE TABLE public.player_match (
     player_id VARCHAR(20) NOT NULL,
     match_id VARCHAR(20) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('batter', 'bowler', 'allrounder', 'wicketkeeper')),
+    ROLE VARCHAR(20) NOT NULL CHECK (ROLE IN ('batter', 'bowler', 'allrounder', 'wicketkeeper')),
     team_id VARCHAR(20) NOT NULL,
     is_extra BOOLEAN NOT NULL,
     PRIMARY KEY (player_id, match_id),
@@ -142,13 +193,26 @@ CREATE TABLE public.player_team (
     FOREIGN KEY (player_id, team_id, season_id) REFERENCES public.auction(player_id, team_id, season_id)
 );
 
+CREATE OR REPLACE FUNCTION automatic_season_id_generation()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.season_id := 'IPL' || NEW.year;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE public.season (
     season_id VARCHAR(20) NOT NULL,
-    year SMALLINT NOT NULL CHECK (year BETWEEN 1900 AND 2025),
+    YEAR SMALLINT NOT NULL CHECK (YEAR BETWEEN 1900 AND 2025),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     PRIMARY KEY (season_id)
 );
+
+CREATE TRIGGER automated_season_id_generation
+BEFORE INSERT ON public.season
+FOR EACH ROW
+EXECUTE FUNCTION automatic_season_id_generation();
 
 CREATE TABLE public.team (
     team_id VARCHAR(20) NOT NULL,
@@ -202,4 +266,31 @@ BEFORE INSERT OR UPDATE ON public.wickets
 FOR EACH ROW
 EXECUTE FUNCTION check_wicketkeeper_for_stumped();
 
+CREATE OR REPLACE FUNCTION limit_on_international_players_per_team()
+RETURNS TRIGGER AS $$
+DECLARE
+    international_count INT;
+BEGIN
+    SELECT COUNT(*)
+    INTO international_count
+    FROM public.player_team pt
+    JOIN public.player p ON pt.player_id = p.player_id
+    WHERE pt.team_id = NEW.team_id
+        AND pt.season_id = NEW.season_id
+        AND p.country_name <> 'India';
 
+    -- Check if the new player being added is an international player
+    IF (SELECT country_name FROM public.player WHERE player_id = NEW.player_id) <> 'India' THEN
+        IF international_count >= 3 THEN
+            RAISE EXCEPTION 'there could be atmost 3 international players per team per season';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER international_player_count_constraint
+BEFORE INSERT OR UPDATE ON public.player_team
+FOR EACH ROW
+EXECUTE FUNCTION limit_on_international_players_per_team();
