@@ -291,6 +291,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER international_player_count_constraint
-BEFORE INSERT OR UPDATE ON public.player_team
+BEFORE INSERT OR UPDATE ON public.player_team--to check with revanth if public.player should be used
 FOR EACH ROW
 EXECUTE FUNCTION limit_on_international_players_per_team();
