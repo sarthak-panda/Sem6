@@ -14,16 +14,31 @@ CREATE SCHEMA PUBLIC;
 SET default_tablespace = '';
 SET default_table_access_method = heap;
 
-CREATE OR REPLACE FUNCTION automatic_insertion_into_player_team()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.is_sold = TRUE THEN
-        --i am assuming we do not need to update because only insert after auction done policy
-        INSERT INTO public.player_team VALUES (NEW.player_id,NEW.team_id,NEW.season_id)
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE TABLE public.player (
+    player_id VARCHAR(20) NOT NULL,
+    player_name VARCHAR(255) NOT NULL,
+    dob DATE NOT NULL CHECK (dob < '2016-01-01'),
+    batting_hand VARCHAR(20) NOT NULL CHECK (batting_hand IN ('left', 'right')),
+    bowling_skill VARCHAR(20) CHECK (bowling_skill IN ('fast', 'medium', 'legspin', 'offspin')),
+    country_name VARCHAR(20) NOT NULL,
+    PRIMARY KEY (player_id)
+);
+
+CREATE TABLE public.season (
+    season_id VARCHAR(20) NOT NULL,
+    YEAR SMALLINT NOT NULL CHECK (YEAR BETWEEN 1900 AND 2025),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    PRIMARY KEY (season_id)
+);
+
+CREATE TABLE public.team (
+    team_id VARCHAR(20) NOT NULL,
+    team_name VARCHAR(255) NOT NULL UNIQUE,
+    coach_name VARCHAR(255) NOT NULL,
+    region VARCHAR(20) NOT NULL UNIQUE,
+    PRIMARY KEY (team_id)
+);
 
 CREATE TABLE public.auction (
 	auction_id VARCHAR(20) NOT NULL,
@@ -44,87 +59,6 @@ CREATE TABLE public.auction (
         (is_sold = TRUE AND sold_price IS NOT NULL AND team_id IS NOT NULL AND sold_price >= base_price)
     )
 );
-
-CREATE TRIGGER automated_player_team_insertion
-BEFORE INSERT OR UPDATE ON public.auction --check with revanth
-FOR EACH ROW
-EXECUTE FUNCTION automatic_insertion_into_player_team();
-
-CREATE TABLE public.awards (
-	match_id VARCHAR(20) NOT NULL,
-	award_type VARCHAR(20) NOT NULL CHECK (award_type IN ('orange_cap', 'purple_cap')),
-	player_id VARCHAR(20) NOT NULL,
-    PRIMARY KEY (match_id, award_type),
-    FOREIGN KEY (match_id) REFERENCES public.match (match_id),
-    FOREIGN KEY (player_id) REFERENCES public.player (player_id)	
-);
-
-CREATE TABLE public.balls (
-    match_id VARCHAR(20) NOT NULL,
-    innings_num SMALLINT NOT NULL,
-    over_num SMALLINT NOT NULL,
-    ball_num SMALLINT NOT NULL,
-    striker_id VARCHAR(20) NOT NULL,
-    non_striker_id VARCHAR(20) NOT NULL,
-    bowler_id VARCHAR(20) NOT NULL,
-    PRIMARY KEY (match_id, innings_num, over_num, ball_num),
-    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
-    FOREIGN KEY (striker_id) REFERENCES public.player(player_id),
-    FOREIGN KEY (non_striker_id) REFERENCES public.player(player_id),
-    FOREIGN KEY (bowler_id) REFERENCES public.player(player_id)
-);
-
-CREATE TABLE public.batter_score (
-    match_id VARCHAR(20) NOT NULL,
-    over_num SMALLINT NOT NULL,
-    innings_num SMALLINT NOT NULL,
-    ball_num SMALLINT NOT NULL,
-    run_scored SMALLINT NOT NULL CHECK (run_scored >= 0),
-    type_run VARCHAR(20) CHECK (type_run IN ('running', 'boundary')),
-    PRIMARY KEY (match_id, innings_num, over_num, ball_num),
-    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
-    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
-);
-
-CREATE TABLE public.extras (
-    match_id VARCHAR(20) NOT NULL,
-    innings_num SMALLINT NOT NULL,
-    over_num SMALLINT NOT NULL,
-    ball_num SMALLINT NOT NULL,
-    extra_runs SMALLINT NOT NULL CHECK (extra_runs >= 0),
-    extra_type VARCHAR(20) NOT NULL CHECK (extra_type IN ('no_ball', 'wide', 'byes', 'legbyes')),
-    PRIMARY KEY (match_id, innings_num, over_num, ball_num),
-    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
-    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
-);
-
-CREATE OR REPLACE FUNCTION match_id_validation()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.match_id !~ '^[a-zA-Z0-9]+[0-9]{3}$' THEN
-        RAISE EXCEPTION 'sequence of match id violated';
-    END IF;
-    season_part := LEFT(NEW.match_id, LENGTH(NEW.match_id) - 3);
-    seq_part := CAST(RIGHT(NEW.match_id, 3) AS INTEGER);
-    IF NEW.season_id <> season_part THEN
-        RAISE EXCEPTION 'sequence of match id violated';
-    END IF;
-    IF seq_part = 1 THEN
-        IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
-        END IF;
-    ELSE
-        prev_match_id := season_part || LPAD(seq_part - 1::TEXT, 3, '0');
-        IF NOT EXISTS (SELECT 1 FROM public.match WHERE match_id = prev_match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
-        END IF;
-        IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
-        END IF;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 CREATE TABLE public.match (
     match_id VARCHAR(20) NOT NULL,
@@ -158,19 +92,36 @@ CREATE TABLE public.match (
     )    
 );
 
-CREATE TRIGGER automated_match_id_validation
-BEFORE INSERT OR UPDATE ON public.match
-FOR EACH ROW
-EXECUTE FUNCTION match_id_validation();
+CREATE TABLE public.awards (
+	match_id VARCHAR(20) NOT NULL,
+	award_type VARCHAR(20) NOT NULL CHECK (award_type IN ('orange_cap', 'purple_cap')),
+	player_id VARCHAR(20) NOT NULL,
+    PRIMARY KEY (match_id, award_type),
+    FOREIGN KEY (match_id) REFERENCES public.match (match_id),
+    FOREIGN KEY (player_id) REFERENCES public.player (player_id)	
+);
 
-CREATE TABLE public.player (
+CREATE TABLE public.player_team (
     player_id VARCHAR(20) NOT NULL,
-    player_name VARCHAR(255) NOT NULL,
-    dob DATE NOT NULL CHECK (dob < '2016-01-01'),
-    batting_hand VARCHAR(20) NOT NULL CHECK (batting_hand IN ('left', 'right')),
-    bowling_skill VARCHAR(20) CHECK (bowling_skill IN ('fast', 'medium', 'legspin', 'offspin')),
-    country_name VARCHAR(20) NOT NULL,
-    PRIMARY KEY (player_id)
+    team_id VARCHAR(20) NOT NULL,
+    season_id VARCHAR(20) NOT NULL,
+    PRIMARY KEY (player_id, team_id, season_id),
+    FOREIGN KEY (player_id, team_id, season_id) REFERENCES public.auction(player_id, team_id, season_id)
+);
+
+CREATE TABLE public.balls (
+    match_id VARCHAR(20) NOT NULL,
+    innings_num SMALLINT NOT NULL,
+    over_num SMALLINT NOT NULL,
+    ball_num SMALLINT NOT NULL,
+    striker_id VARCHAR(20) NOT NULL,
+    non_striker_id VARCHAR(20) NOT NULL,
+    bowler_id VARCHAR(20) NOT NULL,
+    PRIMARY KEY (match_id, innings_num, over_num, ball_num),
+    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
+    FOREIGN KEY (striker_id) REFERENCES public.player(player_id),
+    FOREIGN KEY (non_striker_id) REFERENCES public.player(player_id),
+    FOREIGN KEY (bowler_id) REFERENCES public.player(player_id)
 );
 
 CREATE TABLE public.player_match (
@@ -184,62 +135,6 @@ CREATE TABLE public.player_match (
     FOREIGN KEY (match_id) REFERENCES public.match(match_id),
     FOREIGN KEY (team_id) REFERENCES public.team(team_id)
 );
-
-CREATE TABLE public.player_team (
-    player_id VARCHAR(20) NOT NULL,
-    team_id VARCHAR(20) NOT NULL,
-    season_id VARCHAR(20) NOT NULL,
-    PRIMARY KEY (player_id, team_id, season_id),
-    FOREIGN KEY (player_id, team_id, season_id) REFERENCES public.auction(player_id, team_id, season_id)
-);
-
-CREATE OR REPLACE FUNCTION automatic_season_id_generation()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.season_id := 'IPL' || NEW.year;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TABLE public.season (
-    season_id VARCHAR(20) NOT NULL,
-    YEAR SMALLINT NOT NULL CHECK (YEAR BETWEEN 1900 AND 2025),
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    PRIMARY KEY (season_id)
-);
-
-CREATE TRIGGER automated_season_id_generation
-BEFORE INSERT ON public.season
-FOR EACH ROW
-EXECUTE FUNCTION automatic_season_id_generation();
-
-CREATE TABLE public.team (
-    team_id VARCHAR(20) NOT NULL,
-    team_name VARCHAR(255) NOT NULL UNIQUE,
-    coach_name VARCHAR(255) NOT NULL,
-    region VARCHAR(20) NOT NULL UNIQUE,
-    PRIMARY KEY (team_id)
-);
-
-CREATE OR REPLACE FUNCTION check_wicketkeeper_for_stumped()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.kind_out = 'stumped' THEN
-        IF NOT EXISTS (
-            SELECT 1 FROM public.player_match pm
-            WHERE pm.match_id = NEW.match_id
-            AND pm.player_id = NEW.fielder_id
-            AND pm.role = 'wicketkeeper'
-        ) THEN
-            RAISE EXCEPTION 'for stumped dismissal, fielder must be a wicketkeeper';
-        END IF;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
 
 CREATE TABLE public.wickets (
     match_id VARCHAR(20) NOT NULL,
@@ -260,6 +155,110 @@ CREATE TABLE public.wickets (
         (kind_out NOT IN ('caught', 'runout', 'stumped') AND fielder_id IS NULL)
     )    
 );
+
+CREATE TABLE public.extras (
+    match_id VARCHAR(20) NOT NULL,
+    innings_num SMALLINT NOT NULL,
+    over_num SMALLINT NOT NULL,
+    ball_num SMALLINT NOT NULL,
+    extra_runs SMALLINT NOT NULL CHECK (extra_runs >= 0),
+    extra_type VARCHAR(20) NOT NULL CHECK (extra_type IN ('no_ball', 'wide', 'byes', 'legbyes')),
+    PRIMARY KEY (match_id, innings_num, over_num, ball_num),
+    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
+    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
+);
+
+CREATE TABLE public.batter_score (
+    match_id VARCHAR(20) NOT NULL,
+    over_num SMALLINT NOT NULL,
+    innings_num SMALLINT NOT NULL,
+    ball_num SMALLINT NOT NULL,
+    run_scored SMALLINT NOT NULL CHECK (run_scored >= 0),
+    type_run VARCHAR(20) CHECK (type_run IN ('running', 'boundary')),
+    PRIMARY KEY (match_id, innings_num, over_num, ball_num),
+    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
+    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
+);
+
+CREATE OR REPLACE FUNCTION automatic_insertion_into_player_team()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.is_sold = TRUE THEN
+        --i am assuming we do not need to update because only insert after auction done policy
+        INSERT INTO public.player_team VALUES (NEW.player_id,NEW.team_id,NEW.season_id)
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER automated_player_team_insertion
+BEFORE INSERT OR UPDATE ON public.auction --check with revanth
+FOR EACH ROW
+EXECUTE FUNCTION automatic_insertion_into_player_team();
+
+CREATE OR REPLACE FUNCTION match_id_validation()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.match_id !~ '^[a-zA-Z0-9]+[0-9]{3}$' THEN
+        RAISE EXCEPTION 'sequence of match id violated';
+    END IF;
+    season_part := LEFT(NEW.match_id, LENGTH(NEW.match_id) - 3);
+    seq_part := CAST(RIGHT(NEW.match_id, 3) AS INTEGER);
+    IF NEW.season_id <> season_part THEN
+        RAISE EXCEPTION 'sequence of match id violated';
+    END IF;
+    IF seq_part = 1 THEN
+        IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
+            RAISE EXCEPTION 'sequence of match id violated';
+        END IF;
+    ELSE
+        prev_match_id := season_part || LPAD(seq_part - 1::TEXT, 3, '0');
+        IF NOT EXISTS (SELECT 1 FROM public.match WHERE match_id = prev_match_id) THEN
+            RAISE EXCEPTION 'sequence of match id violated';
+        END IF;
+        IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
+            RAISE EXCEPTION 'sequence of match id violated';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER automated_match_id_validation
+BEFORE INSERT OR UPDATE ON public.match
+FOR EACH ROW
+EXECUTE FUNCTION match_id_validation();
+
+CREATE OR REPLACE FUNCTION automatic_season_id_generation()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.season_id := 'IPL' || NEW.year;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER automated_season_id_generation
+BEFORE INSERT ON public.season
+FOR EACH ROW
+EXECUTE FUNCTION automatic_season_id_generation();
+
+CREATE OR REPLACE FUNCTION check_wicketkeeper_for_stumped()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.kind_out = 'stumped' THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM public.player_match pm
+            WHERE pm.match_id = NEW.match_id
+            AND pm.player_id = NEW.fielder_id
+            AND pm.role = 'wicketkeeper'
+        ) THEN
+            RAISE EXCEPTION 'for stumped dismissal, fielder must be a wicketkeeper';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER enforce_wicketkeeper_for_stumped
 BEFORE INSERT OR UPDATE ON public.wickets
@@ -346,7 +345,6 @@ FOR EACH ROW
 EXECUTE FUNCTION limit_on_number_of_home_matches();
 
 --UPDATING OF ROWS
-
 CREATE OR REPLACE FUNCTION set_winner_team_id()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -637,27 +635,27 @@ WITH innings_agg AS (
     GROUP BY b.striker_id, b.match_id, b.innings_num
 )
 SELECT
-    ia.player_id AS player_id,
-    COUNT(DISTINCT ia.match_id) AS "Mat",
-    COUNT(*) AS "Inns",
-    SUM(ia.runs_in_innings) AS "R",
-    MAX(ia.runs_in_innings) AS "HS",
+    ia.player_id AS player_id::varchar(20),
+    COUNT(DISTINCT ia.match_id)::smallint AS "Mat",
+    COUNT(*)::smallint AS "Inns",
+    SUM(ia.runs_in_innings)::smallint AS "R",
+    MAX(ia.runs_in_innings)::smallint AS "HS",
     CASE 
         WHEN SUM(CASE WHEN ia.is_out = 1 THEN 1 ELSE 0 END) = 0 
-            THEN 0 
-            ELSE ROUND(SUM(ia.runs_in_innings)::numeric/SUM(CASE WHEN ia.is_out = 1 THEN 1 ELSE 0 END),2)
+            THEN 0::double precision 
+            ELSE ROUND(SUM(ia.runs_in_innings)::numeric/SUM(CASE WHEN ia.is_out = 1 THEN 1 ELSE 0 END),2)::double precision
     END AS "Avg",
     CASE 
         WHEN SUM(ia.balls_faced_in_innings) = 0 
-            THEN 0 
-            ELSE ROUND((SUM(ia.runs_in_innings)::numeric/SUM(ia.balls_faced_in_innings))*100,2)
+            THEN 0::double precision 
+            ELSE ROUND((SUM(ia.runs_in_innings)::numeric/SUM(ia.balls_faced_in_innings))*100,2)::double precision
     END AS "SR",
-    SUM(CASE WHEN ia.runs_in_innings >=100 THEN 1 ELSE 0 END) AS "100s",
-    SUM(CASE WHEN ia.runs_in_innings BETWEEN 50 AND 99 THEN 1 ELSE 0 END) AS "50s",
-    SUM(CASE WHEN ia.runs_in_innings = 0 AND ia.is_out = 1 THEN 1 ELSE 0 END) AS "Ducks",
-    SUM(ia.balls_faced_in_innings) AS "BF",
-    SUM(ia.boundary_hits) AS "Boundaries",
-    SUM(CASE WHEN ia.is_out = 0 THEN 1 ELSE 0 END) AS "NO"
+    SUM(CASE WHEN ia.runs_in_innings >=100 THEN 1 ELSE 0 END)::smallint AS "100s",
+    SUM(CASE WHEN ia.runs_in_innings BETWEEN 50 AND 99 THEN 1 ELSE 0 END)::smallint AS "50s",
+    SUM(CASE WHEN ia.runs_in_innings = 0 AND ia.is_out = 1 THEN 1 ELSE 0 END)::smallint AS "Ducks",
+    SUM(ia.balls_faced_in_innings)::smallint AS "BF",
+    SUM(ia.boundary_hits)::smallint AS "Boundaries",
+    SUM(CASE WHEN ia.is_out = 0 THEN 1 ELSE 0 END)::smallint AS "NO"
 FROM innings_agg ia
 GROUP BY ia.player_id;
 
@@ -667,7 +665,7 @@ WITH ball_agg AS (
     SELECT
         b.bowler_id AS player_id,b.match_id,b.innings_num,b.over_num,
         CASE 
-            WHEN e.extra_type IN ('no_ball', 'wide') THEN 0 
+            WHEN e.extra_type IN ('no_ball', 'wide') THEN 1---0 
             ELSE 1 
         END AS ball_delivered,-- total deliveries excluding no-balls & wides, check with revanth
         COALESCE(bs.run_scored, 0) AS runs_batter,-- runs scored by the batter on this delivery
@@ -685,37 +683,36 @@ WITH ball_agg AS (
             ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
 )
 SELECT
-    player_id,
+    player_id::varchar(20),
     -- total deliveries excluding no-balls & wides, check with revanth
-    SUM(ball_delivered) AS "B",
+    SUM(ball_delivered)::smallint AS "B",
     -- total wickets of the type 'bowled','caught','lbw','stumped'
-    SUM(is_wicket) AS "W",
-    SUM(runs_batter + runs_extra) AS "Runs",
-    CASE 
-        WHEN SUM(is_wicket) = 0 THEN 0
-        ELSE ROUND(SUM(runs_batter + runs_extra)::numeric/SUM(is_wicket),2)
+    SUM(is_wicket)::smallint AS "W",
+    SUM(runs_batter + runs_extra)::smallint AS "Runs",
+    CASE
+        WHEN SUM(is_wicket) = 0 THEN 0::double precision
+        ELSE ROUND(SUM(runs_batter + runs_extra)::numeric/SUM(is_wicket),2)::double precision
     END AS "Avg",
     CASE 
-        WHEN COUNT(DISTINCT (match_id, innings_num, over_num)) = 0 THEN 0
-        ELSE ROUND((SUM(runs_batter + runs_extra)::numeric/COUNT(DISTINCT (match_id, innings_num, over_num))),2)
+        WHEN COUNT(DISTINCT (match_id, innings_num, over_num)) = 0 THEN 0::double precision
+        ELSE ROUND((SUM(runs_batter + runs_extra)::numeric/COUNT(DISTINCT (match_id, innings_num, over_num))),2)::double precision
     END AS "Econ",
     CASE 
-        WHEN SUM(is_wicket) = 0 THEN 0
-        ELSE ROUND((SUM(ball_delivered)::numeric/SUM(is_wicket)),2)
+        WHEN SUM(is_wicket) = 0 THEN 0::double precision
+        ELSE ROUND((SUM(ball_delivered)::numeric/SUM(is_wicket)),2)::double precision
     END AS "SR",
-    SUM(runs_extra) AS "Extras"
+    SUM(runs_extra)::smallint AS "Extras"
 FROM ball_agg
 GROUP BY player_id;
 
 --fielder stats--types of out ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'), i have a doubt hitwicket is neither used in bowler stat or fielder stat isn't it left out, ask revanth
 CREATE OR REPLACE VIEW public.fielder_stats AS
 SELECT
-    w.fielder_id AS player_id,
-    SUM(CASE WHEN w.kind_out = 'caught'   THEN 1 ELSE 0 END) AS "C",
+    w.fielder_id::varchar(20) AS player_id,
+    SUM(CASE WHEN w.kind_out = 'caught'   THEN 1 ELSE 0 END)::smallint AS "C",
     -- Count how many times kind_out = 'stumped'
-    SUM(CASE WHEN w.kind_out = 'stumped'  THEN 1 ELSE 0 END) AS "St",
-    SUM(CASE WHEN w.kind_out = 'runout'   THEN 1 ELSE 0 END) AS "RO"
+    SUM(CASE WHEN w.kind_out = 'stumped'  THEN 1 ELSE 0 END)::smallint AS "St",
+    SUM(CASE WHEN w.kind_out = 'runout'   THEN 1 ELSE 0 END)::smallint AS "RO"
 FROM public.wickets w
 WHERE w.fielder_id IS NOT NULL
 GROUP BY w.fielder_id;
-
