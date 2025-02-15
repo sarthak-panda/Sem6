@@ -278,7 +278,6 @@ BEGIN
     WHERE pt.team_id = NEW.team_id
         AND pt.season_id = NEW.season_id
         AND p.country_name <> 'India';
-
     -- Check if the new player being added is an international player
     IF (SELECT country_name FROM public.player WHERE player_id = NEW.player_id) <> 'India' THEN
         IF international_count >= 3 THEN
@@ -294,3 +293,217 @@ CREATE TRIGGER international_player_count_constraint
 BEFORE INSERT OR UPDATE ON public.player_team--to check with revanth if public.player should be used
 FOR EACH ROW
 EXECUTE FUNCTION limit_on_international_players_per_team();
+
+CREATE OR REPLACE FUNCTION limit_on_number_of_home_matches()
+RETURNS TRIGGER AS $$
+DECLARE
+    home_region_team1 VARCHAR(20);
+    home_region_team2 VARCHAR(20);
+BEGIN
+    SELECT region INTO home_region_team1 FROM public.team WHERE team_id = NEW.team_1_id;
+    SELECT region INTO home_region_team2 FROM public.team WHERE team_id = NEW.team_2_id;
+    -- League match must be played at home ground of one of the teams
+    IF NEW.match_type = 'league' THEN
+        IF NEW.venue <> home_region_team1 AND NEW.venue <> home_region_team2 THEN
+            RAISE EXCEPTION 'league match must be played at home ground of one of the teams';
+        END IF;
+        IF NEW.venue = home_region_team1 THEN
+            IF EXISTS (
+                SELECT 1
+                FROM public.match AS m
+                WHERE m.match_type = 'league'
+                    AND m.season_id = NEW.season_id
+                    AND m.venue = home_region_team1
+                    AND (m.team_1_id = NEW.team_1_id OR m.team_2_id = NEW.team_1_id)
+                    AND (m.team_1_id = NEW.team_2_id OR m.team_2_id = NEW.team_2_id)
+            ) THEN
+                RAISE EXCEPTION 'each team can play only one home match in a league against another team';
+            END IF;
+        END IF;
+        IF NEW.venue = home_region_team2 THEN
+            IF EXISTS (
+                SELECT 1
+                FROM public.match AS m
+                WHERE m.match_type = 'league'
+                    AND m.season_id = NEW.season_id
+                    AND m.venue = home_region_team2
+                    AND (m.team_1_id = NEW.team_2_id OR m.team_2_id = NEW.team_2_id)
+                    AND (m.team_1_id = NEW.team_1_id OR m.team_2_id = NEW.team_1_id)
+            ) THEN
+                RAISE EXCEPTION 'each team can play only one home match in a league against another team';
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Attach Trigger to match table
+CREATE TRIGGER home_match_count_constraint
+BEFORE INSERT OR UPDATE ON public.match
+FOR EACH ROW
+EXECUTE FUNCTION limit_on_number_of_home_matches();
+
+--UPDATING OF ROWS
+
+--DELETION OF ROWS
+--AUCTION DELETION
+CREATE OR REPLACE FUNCTION auction_deletion_cleanup()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.is_sold THEN
+        DELETE FROM public.player_team
+        WHERE player_id = OLD.player_id AND team_id = OLD.team_id AND season_id = OLD.season_id;
+
+        DELETE FROM public.awards
+        WHERE player_id = OLD.player_id
+            AND match_id IN (
+                    SELECT match_id 
+                    FROM public.match 
+                    WHERE season_id = OLD.season_id
+            );
+
+        DELETE FROM public.player_match
+        WHERE player_id = OLD.player_id AND team_id = OLD.team_id
+            AND match_id IN (
+                SELECT match_id 
+                FROM public.match 
+                WHERE season_id = OLD.season_id
+            );
+
+        DELETE FROM public.wickets w--check with revanth
+        USING public.balls b
+        WHERE (
+                (w.player_out_id = OLD.player_id OR w.fielder_id = OLD.player_id)
+                OR 
+                (
+                    w.match_id = b.match_id AND w.innings_num = b.innings_num AND w.over_num = b.over_num AND w.ball_num = b.ball_num
+                    AND (b.striker_id = OLD.player_id OR b.non_striker_id = OLD.player_id OR b.bowler_id = OLD.player_id)
+                )
+            )
+            AND w.match_id IN (
+                SELECT match_id 
+                FROM public.match 
+                WHERE season_id = OLD.season_id
+            );
+
+        DELETE FROM public.extras e
+        USING public.balls b
+        WHERE e.match_id = b.match_id AND e.innings_num = b.innings_num AND e.over_num = b.over_num AND e.ball_num = b.ball_num
+            AND (b.striker_id = OLD.player_id OR b.non_striker_id = OLD.player_id OR b.bowler_id = OLD.player_id)
+            AND b.match_id IN (
+                SELECT match_id 
+                FROM public.match 
+                WHERE season_id = OLD.season_id
+            );
+
+        DELETE FROM public.batter_score bs
+        USING public.balls b
+        WHERE bs.match_id = b.match_id AND bs.innings_num = b.innings_num AND bs.over_num = b.over_num AND bs.ball_num = b.ball_num
+            AND (b.striker_id = OLD.player_id OR b.non_striker_id = OLD.player_id OR b.bowler_id = OLD.player_id)
+            AND b.match_id IN (
+                SELECT match_id 
+                FROM public.match 
+                WHERE season_id = OLD.season_id
+            );
+
+        DELETE FROM public.balls
+        WHERE (striker_id = OLD.player_id OR non_striker_id = OLD.player_id OR bowler_id = OLD.player_id)
+            AND match_id IN (
+                SELECT match_id 
+                FROM public.match 
+                WHERE season_id = OLD.season_id
+            );
+    END IF;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER auction_deletion_trigger
+AFTER DELETE ON public.auction
+FOR EACH ROW
+EXECUTE FUNCTION auction_deletion_cleanup();
+
+--MATCH DELETION
+CREATE OR REPLACE FUNCTION match_deletion_cleanup()
+RETURNS TRIGGER AS $$
+BEGIN
+    DELETE FROM public.balls
+    WHERE match_id = OLD.match_id;
+    
+    DELETE FROM public.batter_score
+    WHERE match_id = OLD.match_id;
+    
+    DELETE FROM public.extras
+    WHERE match_id = OLD.match_id;
+    
+    DELETE FROM public.wickets
+    WHERE match_id = OLD.match_id;
+    
+    DELETE FROM public.player_match
+    WHERE match_id = OLD.match_id;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER match_deletion_trigger
+AFTER DELETE ON public.match
+FOR EACH ROW
+EXECUTE FUNCTION match_deletion_cleanup();
+
+--SEASON DELETION
+CREATE OR REPLACE FUNCTION season_deletion_cleanup()
+RETURNS TRIGGER AS $$
+BEGIN
+
+    DELETE FROM public.auction
+    WHERE season_id = OLD.season_id;
+
+    DELETE FROM public.awards
+    WHERE match_id IN (
+        SELECT match_id FROM public.match WHERE season_id = OLD.season_id
+    );
+
+    DELETE FROM public.balls
+    WHERE match_id IN (
+        SELECT match_id FROM public.match WHERE season_id = OLD.season_id
+    );
+
+    DELETE FROM public.batter_score
+    WHERE match_id IN (
+        SELECT match_id FROM public.match WHERE season_id = OLD.season_id
+    );
+    
+    DELETE FROM public.extras
+    WHERE match_id IN (
+        SELECT match_id FROM public.match WHERE season_id = OLD.season_id
+    );
+    
+    DELETE FROM public.wickets
+    WHERE match_id IN (
+        SELECT match_id FROM public.match WHERE season_id = OLD.season_id
+    );
+
+    DELETE FROM public.player_match
+    WHERE match_id IN (
+        SELECT match_id FROM public.match WHERE season_id = OLD.season_id
+    );
+
+    DELETE FROM public.match
+    WHERE season_id = OLD.season_id;
+
+    DELETE FROM public.player_team
+    WHERE season_id = OLD.season_id;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER season_deletion_trigger
+AFTER DELETE ON public.season
+FOR EACH ROW
+EXECUTE FUNCTION season_deletion_cleanup();
+
+--TO CREATE VIEWS
