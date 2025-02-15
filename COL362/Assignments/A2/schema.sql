@@ -347,6 +347,105 @@ EXECUTE FUNCTION limit_on_number_of_home_matches();
 
 --UPDATING OF ROWS
 
+CREATE OR REPLACE FUNCTION set_winner_team_id()
+RETURNS TRIGGER AS $$
+DECLARE
+    batting_first_team VARCHAR(20);
+    batting_second_team VARCHAR(20);
+BEGIN
+    IF NEW.win_type IS NOT NULL AND (OLD.win_type IS DISTINCT FROM NEW.win_type) THEN
+        IF NEW.win_type = 'draw' THEN
+            NEW.winner_team_id := NULL;
+        ELSE
+            IF NEW.toss_winner = 1 THEN
+                IF NEW.toss_decide = 'bat' THEN
+                    batting_first_team := NEW.team_1_id;
+                    batting_second_team := NEW.team_2_id;
+                ELSE
+                    batting_first_team := NEW.team_2_id;
+                    batting_second_team := NEW.team_1_id;
+                END IF;
+            ELSE
+                IF NEW.toss_decide = 'bat' THEN
+                    batting_first_team := NEW.team_2_id;
+                    batting_second_team := NEW.team_1_id;
+                ELSE
+                    batting_first_team := NEW.team_1_id;
+                    batting_second_team := NEW.team_2_id;
+                END IF;
+            END IF;
+
+            IF NEW.win_type = 'runs' THEN
+                NEW.winner_team_id := batting_first_team;
+            ELSIF NEW.win_type = 'wickets' THEN
+                NEW.winner_team_id := batting_second_team;
+            END IF;        
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_winner_team_trigger
+BEFORE UPDATE ON public.match
+FOR EACH ROW
+EXECUTE FUNCTION set_winner_team_id();
+
+CREATE OR REPLACE FUNCTION insert_awards_after_match()
+RETURNS TRIGGER AS $$
+DECLARE
+    orange_cap_player VARCHAR(20);
+    purple_cap_player VARCHAR(20);
+BEGIN
+    IF NEW.win_type IS NOT NULL AND (OLD.win_type IS DISTINCT FROM NEW.win_type) THEN
+
+        WITH runs_o AS (
+            SELECT striker_id, SUM(run_scored) AS total_runs
+            FROM public.batter_score
+            WHERE match_id = NEW.match_id
+            GROUP BY striker_id
+        ),
+        ranked_runs AS (
+            SELECT striker_id
+            FROM runs_o
+            ORDER BY total_runs DESC, striker_id ASC
+            LIMIT 1;
+        )
+        SELECT striker_id INTO orange_cap_player
+        FROM ranked_runs
+
+        WITH wickets_o AS (
+            SELECT b.bowler_id, COUNT(*) AS total_wickets
+            FROM public.balls b
+            JOIN public.wickets w 
+                ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
+            WHERE b.match_id = NEW.match_id
+                AND w.kind_out IN ('bowled', 'caught', 'lbw', 'stumped') -- or should i remove this condition so all accepted ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket') --check
+            GROUP BY b.bowler_id
+        ),
+        ranked_wickets AS (
+            SELECT bowler_id
+            FROM wickets_o
+            ORDER BY total_wickets DESC, bowler_id ASC
+            LIMIT 1;
+        )
+        SELECT bowler_id INTO purple_cap_player
+        FROM ranked_wickets\
+        
+        INSERT INTO public.awards (match_id, award_type, player_id)
+        VALUES
+            (NEW.match_id, 'orange_cap', orange_cap_player),
+            (NEW.match_id, 'purple_cap', purple_cap_player);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER insert_awards_trigger
+AFTER UPDATE ON public.match
+FOR EACH ROW
+EXECUTE FUNCTION insert_awards_after_match();
+
 --DELETION OF ROWS
 --AUCTION DELETION
 CREATE OR REPLACE FUNCTION auction_deletion_cleanup()
@@ -507,4 +606,116 @@ FOR EACH ROW
 EXECUTE FUNCTION season_deletion_cleanup();
 
 --TO CREATE VIEWS
+--batter stats
 CREATE OR REPLACE VIEW public.batter_stats AS
+WITH innings_agg AS (
+    SELECT
+        b.striker_id AS player_id, b.match_id, b.innings_num,
+        -- ignoring extras in run count
+        COALESCE(SUM(bs.run_scored), 0) AS runs_in_innings,
+        -- balls faced if they do NOT appear in extras
+        COUNT(*) FILTER (WHERE e.match_id IS NULL) AS balls_faced_in_innings,
+        SUM(
+            CASE 
+                WHEN bs.type_run = 'boundary' AND bs.run_scored IN (4, 6) 
+                THEN 1 
+                ELSE 0 
+            END
+        ) AS boundary_hits,
+        CASE 
+            WHEN MAX(w.player_out_id) = b.striker_id THEN 1 
+            ELSE 0 
+        END AS is_out     
+    FROM public.balls b
+    LEFT JOIN public.batter_score bs
+            ON b.match_id = bs.match_id AND b.innings_num = bs.innings_num AND b.over_num = bs.over_num AND b.ball_num = bs.ball_num
+    LEFT JOIN public.extras e
+            ON b.match_id = e.match_id AND b.innings_num = e.innings_num AND b.over_num = e.over_num AND b.ball_num = e.ball_num
+    LEFT JOIN public.wickets w
+            ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
+            AND w.player_out_id = b.striker_id
+    GROUP BY b.striker_id, b.match_id, b.innings_num
+)
+SELECT
+    ia.player_id AS player_id,
+    COUNT(DISTINCT ia.match_id) AS "Mat",
+    COUNT(*) AS "Inns",
+    SUM(ia.runs_in_innings) AS "R",
+    MAX(ia.runs_in_innings) AS "HS",
+    CASE 
+        WHEN SUM(CASE WHEN ia.is_out = 1 THEN 1 ELSE 0 END) = 0 
+            THEN 0 
+            ELSE ROUND(SUM(ia.runs_in_innings)::numeric/SUM(CASE WHEN ia.is_out = 1 THEN 1 ELSE 0 END),2)
+    END AS "Avg",
+    CASE 
+        WHEN SUM(ia.balls_faced_in_innings) = 0 
+            THEN 0 
+            ELSE ROUND((SUM(ia.runs_in_innings)::numeric/SUM(ia.balls_faced_in_innings))*100,2)
+    END AS "SR",
+    SUM(CASE WHEN ia.runs_in_innings >=100 THEN 1 ELSE 0 END) AS "100s",
+    SUM(CASE WHEN ia.runs_in_innings BETWEEN 50 AND 99 THEN 1 ELSE 0 END) AS "50s",
+    SUM(CASE WHEN ia.runs_in_innings = 0 AND ia.is_out = 1 THEN 1 ELSE 0 END) AS "Ducks",
+    SUM(ia.balls_faced_in_innings) AS "BF",
+    SUM(ia.boundary_hits) AS "Boundaries",
+    SUM(CASE WHEN ia.is_out = 0 THEN 1 ELSE 0 END) AS "NO"
+FROM innings_agg ia
+GROUP BY ia.player_id;
+
+--bowler stats
+CREATE OR REPLACE VIEW public.bowler_stats AS
+WITH ball_agg AS (
+    SELECT
+        b.bowler_id AS player_id,b.match_id,b.innings_num,b.over_num,
+        CASE 
+            WHEN e.extra_type IN ('no_ball', 'wide') THEN 0 
+            ELSE 1 
+        END AS ball_delivered,-- total deliveries excluding no-balls & wides, check with revanth
+        COALESCE(bs.run_scored, 0) AS runs_batter,-- runs scored by the batter on this delivery
+        COALESCE(e.extra_runs, 0) AS runs_extra,
+        CASE -- total wickets of the type 'bowled','caught','lbw','stumped'
+            WHEN w.kind_out IN ('bowled','caught','lbw','stumped') THEN 1
+            ELSE 0 
+        END AS is_wicket
+    FROM public.balls b
+    LEFT JOIN public.batter_score bs
+            ON b.match_id = bs.match_id AND b.innings_num = bs.innings_num AND b.over_num = bs.over_num AND b.ball_num = bs.ball_num
+    LEFT JOIN public.extras e
+            ON b.match_id = e.match_id AND b.innings_num = e.innings_num AND b.over_num = e.over_num AND b.ball_num = e.ball_num
+    LEFT JOIN public.wickets w
+            ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
+)
+SELECT
+    player_id,
+    -- total deliveries excluding no-balls & wides, check with revanth
+    SUM(ball_delivered) AS "B",
+    -- total wickets of the type 'bowled','caught','lbw','stumped'
+    SUM(is_wicket) AS "W",
+    SUM(runs_batter + runs_extra) AS "Runs",
+    CASE 
+        WHEN SUM(is_wicket) = 0 THEN 0
+        ELSE ROUND(SUM(runs_batter + runs_extra)::numeric/SUM(is_wicket),2)
+    END AS "Avg",
+    CASE 
+        WHEN COUNT(DISTINCT (match_id, innings_num, over_num)) = 0 THEN 0
+        ELSE ROUND((SUM(runs_batter + runs_extra)::numeric/COUNT(DISTINCT (match_id, innings_num, over_num))),2)
+    END AS "Econ",
+    CASE 
+        WHEN SUM(is_wicket) = 0 THEN 0
+        ELSE ROUND((SUM(ball_delivered)::numeric/SUM(is_wicket)),2)
+    END AS "SR",
+    SUM(runs_extra) AS "Extras"
+FROM ball_agg
+GROUP BY player_id;
+
+--fielder stats--types of out ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'), i have a doubt hitwicket is neither used in bowler stat or fielder stat isn't it left out, ask revanth
+CREATE OR REPLACE VIEW public.fielder_stats AS
+SELECT
+    w.fielder_id AS player_id,
+    SUM(CASE WHEN w.kind_out = 'caught'   THEN 1 ELSE 0 END) AS "C",
+    -- Count how many times kind_out = 'stumped'
+    SUM(CASE WHEN w.kind_out = 'stumped'  THEN 1 ELSE 0 END) AS "St",
+    SUM(CASE WHEN w.kind_out = 'runout'   THEN 1 ELSE 0 END) AS "RO"
+FROM public.wickets w
+WHERE w.fielder_id IS NOT NULL
+GROUP BY w.fielder_id;
+
