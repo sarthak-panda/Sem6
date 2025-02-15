@@ -507,3 +507,4 @@ FOR EACH ROW
 EXECUTE FUNCTION season_deletion_cleanup();
 
 --TO CREATE VIEWS
+CREATE OR REPLACE VIEW public.batter_stats AS
