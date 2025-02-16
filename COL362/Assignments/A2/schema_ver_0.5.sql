@@ -14,19 +14,9 @@ CREATE SCHEMA PUBLIC;
 SET default_tablespace = '';
 SET default_table_access_method = heap;
 
-CREATE TABLE public.player (
-    player_id VARCHAR(20) NOT NULL,
-    player_name VARCHAR(255) NOT NULL,
-    dob DATE NOT NULL CHECK (dob < '2016-01-01'),
-    batting_hand VARCHAR(20) NOT NULL CHECK (batting_hand IN ('left', 'right')),
-    bowling_skill VARCHAR(20) CHECK (bowling_skill IN ('fast', 'medium', 'legspin', 'offspin')),
-    country_name VARCHAR(20) NOT NULL,
-    PRIMARY KEY (player_id)
-);
-
 CREATE TABLE public.season (
     season_id VARCHAR(20) NOT NULL,
-    year SMALLINT NOT NULL CHECK (year BETWEEN 1900 AND 2025),---changed
+    YEAR SMALLINT NOT NULL CHECK (YEAR BETWEEN 1900 AND 2025),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     PRIMARY KEY (season_id)
@@ -40,24 +30,14 @@ CREATE TABLE public.team (
     PRIMARY KEY (team_id)
 );
 
-CREATE TABLE public.auction (
-	auction_id VARCHAR(20) NOT NULL,
-	season_id VARCHAR(20) NOT NULL,
-	player_id VARCHAR(20) NOT NULL,
-	base_price BIGINT NOT NULL CHECK (base_price >= 1000000),
-	sold_price BIGINT,
-	is_sold BOOLEAN NOT NULL,
-	team_id VARCHAR(20) NOT NULL,
-	PRIMARY KEY (auction_id),
-	FOREIGN KEY (season_id) REFERENCES public.season (season_id),
-	FOREIGN KEY (player_id) REFERENCES public.player (player_id),
-	FOREIGN KEY (team_id) REFERENCES public.team (team_id),
-    UNIQUE (player_id, team_id, season_id),
-    CHECK (
-        (is_sold = FALSE AND sold_price IS NULL)--check WITH revanth
-        OR
-        (is_sold = TRUE AND sold_price IS NOT NULL AND team_id IS NOT NULL AND sold_price >= base_price)
-    )
+CREATE TABLE public.player (
+    player_id VARCHAR(20) NOT NULL,
+    player_name VARCHAR(255) NOT NULL,
+    dob DATE NOT NULL CHECK (dob < '2016-01-01'),
+    batting_hand VARCHAR(20) NOT NULL CHECK (batting_hand IN ('left', 'right')),
+    bowling_skill VARCHAR(20) CHECK (bowling_skill IN ('fast', 'medium', 'legspin', 'offspin')),
+    country_name VARCHAR(20) NOT NULL,
+    PRIMARY KEY (player_id)
 );
 
 CREATE TABLE public.match (
@@ -92,21 +72,44 @@ CREATE TABLE public.match (
     )    
 );
 
-CREATE TABLE public.awards (
-	match_id VARCHAR(20) NOT NULL,
-	award_type VARCHAR(20) NOT NULL CHECK (award_type IN ('orange_cap', 'purple_cap')),
-	player_id VARCHAR(20) NOT NULL,
-    PRIMARY KEY (match_id, award_type),
-    FOREIGN KEY (match_id) REFERENCES public.match (match_id),
-    FOREIGN KEY (player_id) REFERENCES public.player (player_id)	
-);
-
 CREATE TABLE public.player_team (
     player_id VARCHAR(20) NOT NULL,
     team_id VARCHAR(20) NOT NULL,
     season_id VARCHAR(20) NOT NULL,
     PRIMARY KEY (player_id, team_id, season_id),
     FOREIGN KEY (player_id, team_id, season_id) REFERENCES public.auction(player_id, team_id, season_id)
+);
+
+CREATE TABLE public.player_match (
+    player_id VARCHAR(20) NOT NULL,
+    match_id VARCHAR(20) NOT NULL,
+    ROLE VARCHAR(20) NOT NULL CHECK (ROLE IN ('batter', 'bowler', 'allrounder', 'wicketkeeper')),
+    team_id VARCHAR(20) NOT NULL,
+    is_extra BOOLEAN NOT NULL,
+    PRIMARY KEY (player_id, match_id),
+    FOREIGN KEY (player_id) REFERENCES public.player(player_id),
+    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
+    FOREIGN KEY (team_id) REFERENCES public.team(team_id)
+);
+
+CREATE TABLE public.auction (
+	auction_id VARCHAR(20) NOT NULL,
+	season_id VARCHAR(20) NOT NULL,
+	player_id VARCHAR(20) NOT NULL,
+	base_price BIGINT NOT NULL CHECK (base_price >= 1000000),
+	sold_price BIGINT,
+	is_sold BOOLEAN NOT NULL,
+	team_id VARCHAR(20) NOT NULL,
+	PRIMARY KEY (auction_id),
+	FOREIGN KEY (season_id) REFERENCES public.season (season_id),
+	FOREIGN KEY (player_id) REFERENCES public.player (player_id),
+	FOREIGN KEY (team_id) REFERENCES public.team (team_id),
+    UNIQUE (player_id, team_id, season_id),
+    CHECK (
+        (is_sold = FALSE AND sold_price IS NULL)--check WITH revanth
+        OR
+        (is_sold = TRUE AND sold_price IS NOT NULL AND team_id IS NOT NULL AND sold_price >= base_price)
+    )
 );
 
 CREATE TABLE public.balls (
@@ -124,36 +127,16 @@ CREATE TABLE public.balls (
     FOREIGN KEY (bowler_id) REFERENCES public.player(player_id)
 );
 
-CREATE TABLE public.player_match (
-    player_id VARCHAR(20) NOT NULL,
+CREATE TABLE public.batter_score (
     match_id VARCHAR(20) NOT NULL,
-    ROLE VARCHAR(20) NOT NULL CHECK (ROLE IN ('batter', 'bowler', 'allrounder', 'wicketkeeper')),
-    team_id VARCHAR(20) NOT NULL,
-    is_extra BOOLEAN NOT NULL,
-    PRIMARY KEY (player_id, match_id),
-    FOREIGN KEY (player_id) REFERENCES public.player(player_id),
-    FOREIGN KEY (match_id) REFERENCES public.match(match_id),
-    FOREIGN KEY (team_id) REFERENCES public.team(team_id)
-);
-
-CREATE TABLE public.wickets (
-    match_id VARCHAR(20) NOT NULL,
-    innings_num SMALLINT NOT NULL,
     over_num SMALLINT NOT NULL,
+    innings_num SMALLINT NOT NULL,
     ball_num SMALLINT NOT NULL,
-    player_out_id VARCHAR(20) NOT NULL,
-    kind_out VARCHAR(20) NOT NULL CHECK (kind_out IN ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket')),
-    fielder_id VARCHAR(20),
+    run_scored SMALLINT NOT NULL CHECK (run_scored >= 0),
+    type_run VARCHAR(20) CHECK (type_run IN ('running', 'boundary')),
     PRIMARY KEY (match_id, innings_num, over_num, ball_num),
     FOREIGN KEY (match_id) REFERENCES public.match(match_id),
-    FOREIGN KEY (player_out_id) REFERENCES public.player(player_id),
-    FOREIGN KEY (fielder_id) REFERENCES public.player(player_id),
-    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num), -- Composite FK
-    CHECK (
-        (kind_out IN ('caught', 'runout', 'stumped') AND fielder_id IS NOT NULL)
-        OR
-        (kind_out NOT IN ('caught', 'runout', 'stumped') AND fielder_id IS NULL)
-    )    
+    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
 );
 
 CREATE TABLE public.extras (
@@ -168,16 +151,33 @@ CREATE TABLE public.extras (
     FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
 );
 
-CREATE TABLE public.batter_score (
+CREATE TABLE public.wickets (
     match_id VARCHAR(20) NOT NULL,
-    over_num SMALLINT NOT NULL,
     innings_num SMALLINT NOT NULL,
+    over_num SMALLINT NOT NULL,
     ball_num SMALLINT NOT NULL,
-    run_scored SMALLINT NOT NULL CHECK (run_scored >= 0),
-    type_run VARCHAR(20) CHECK (type_run IN ('running', 'boundary')),
+    player_out_id VARCHAR(20) NOT NULL,
+    kind_out VARCHAR(20) NOT NULL CHECK (kind_out IN ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket')),
+    fielder_id VARCHAR(20),
     PRIMARY KEY (match_id, innings_num, over_num, ball_num),
     FOREIGN KEY (match_id) REFERENCES public.match(match_id),
+    FOREIGN KEY (player_out_id) REFERENCES public.player(player_id),
+    FOREIGN KEY (fielder_id) REFERENCES public.player(player_id),
     FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
+    CHECK (
+        (kind_out IN ('caught', 'runout', 'stumped') AND fielder_id IS NOT NULL)
+        OR
+        (kind_out NOT IN ('caught', 'runout', 'stumped') AND fielder_id IS NULL)
+    )    
+);
+
+CREATE TABLE public.awards (
+	match_id VARCHAR(20) NOT NULL,
+	award_type VARCHAR(20) NOT NULL CHECK (award_type IN ('orange_cap', 'purple_cap')),
+	player_id VARCHAR(20) NOT NULL,
+    PRIMARY KEY (match_id, award_type),
+    FOREIGN KEY (match_id) REFERENCES public.match (match_id),
+    FOREIGN KEY (player_id) REFERENCES public.player (player_id)	
 );
 
 -- CREATE OR REPLACE FUNCTION automatic_insertion_into_player_team()
@@ -229,23 +229,18 @@ CREATE TABLE public.batter_score (
 -- FOR EACH ROW
 -- EXECUTE FUNCTION match_id_validation();
 
-CREATE OR REPLACE FUNCTION automatic_season_id_generation()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.season_id := CONCAT(IPL, NEW.year)::varchar(20);---changed
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- CREATE OR REPLACE FUNCTION automatic_season_id_generation()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--     NEW.season_id := 'IPL' || NEW.year;
+--     RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS automated_season_id_generation ON public.season
-
-CREATE TRIGGER automated_season_id_generation
-BEFORE INSERT OR UPDATE ON "season"--CHANGED TO ADD UPDATE BUT NO USE---changed
-FOR EACH ROW
-EXECUTE PROCEDURE automatic_season_id_generation();
-
--- ALTER TABLE public.season--changed
--- ENABLE TRIGGER automated_season_id_generation;
+-- CREATE TRIGGER automated_season_id_generation
+-- BEFORE INSERT ON public.season
+-- FOR EACH ROW
+-- EXECUTE FUNCTION automatic_season_id_generation();
 
 -- CREATE OR REPLACE FUNCTION check_wicketkeeper_for_stumped()
 -- RETURNS TRIGGER AS $$

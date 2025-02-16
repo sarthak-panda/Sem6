@@ -148,7 +148,7 @@ CREATE TABLE public.wickets (
     FOREIGN KEY (match_id) REFERENCES public.match(match_id),
     FOREIGN KEY (player_out_id) REFERENCES public.player(player_id),
     FOREIGN KEY (fielder_id) REFERENCES public.player(player_id),
-    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num), -- Composite FK
+    FOREIGN KEY (match_id, innings_num, over_num, ball_num) REFERENCES public.balls(match_id, innings_num, over_num, ball_num) -- Composite FK
     CHECK (
         (kind_out IN ('caught', 'runout', 'stumped') AND fielder_id IS NOT NULL)
         OR
