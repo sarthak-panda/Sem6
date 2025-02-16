@@ -9,14 +9,11 @@
 #include <omp.h>
 #include <set>
 #include "check.h"
-
 using namespace std;
-
 void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) {
     for (auto it = matrixBlocks.begin(); it != matrixBlocks.end(); ) {
         vector<vector<int>>& block = it->second;
         bool isBlockNonZero = false;
-
         for (auto& row : block) {
             for (auto& value : row) {
                 if (value % 5 == 0) {
@@ -27,7 +24,6 @@ void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBloc
                 }
             }
         }
-
         if (!isBlockNonZero) {
             it = matrixBlocks.erase(it);
         } else {
@@ -35,45 +31,6 @@ void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBloc
         }
     }
 }
-
-// void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) {
-//     vector<pair<int, int>> keys_to_erase;
-
-//     #pragma omp parallel
-//     #pragma omp single
-//     {
-//         for (auto& entry : matrixBlocks) {
-//             #pragma omp task firstprivate(entry)
-//             {
-//                 auto& [key, block] = entry;
-//                 bool isBlockNonZero = false;
-
-//                 // Zero out multiples of 5 and check for non-zero elements
-//                 for (auto& row : block) {
-//                     for (auto& value : row) {
-//                         if (value % 5 == 0) {
-//                             value = 0;
-//                         }
-//                         if (value != 0) {
-//                             isBlockNonZero = true;
-//                         }
-//                     }
-//                 }
-
-//                 if (!isBlockNonZero) {
-//                     #pragma omp critical
-//                     keys_to_erase.push_back(key);
-//                 }
-//             }
-//         }
-//     }
-
-//     // Erase outside the parallel region
-//     for (auto& key : keys_to_erase) {
-//         matrixBlocks.erase(key);
-//     }
-// }
-
 map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
     map<pair<int, int>, vector<vector<int>>> matrix_map;
     std::random_device rd;
@@ -121,7 +78,6 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
     }
     return matrix_map;
 }
-
 vector<float> matmul_serial(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
     vector<float> row_statistics(n, 0.0f);
     vector<int> P(n, 0);
@@ -176,7 +132,6 @@ vector<float> matmul_serial(map<pair<int, int>, vector<vector<int>>>& blocks, in
     blocks = result;
     return (k == 2) ? row_statistics : vector<float>();
 }
-
 vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& blocks_dash,map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, bool stats_needed) {
     vector<float> row_statistics;
     vector<int> P,B;
@@ -189,7 +144,6 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     std::vector<std::pair<int, int>> keys1, keys2;
     for (const auto &entry : blocks_dash) keys1.push_back(entry.first);
     for (const auto &entry : blocks) keys2.push_back(entry.first);
-
     size_t n1 = keys1.size();
     size_t n2 = keys2.size();
     #pragma omp parallel if(black_box())
@@ -241,19 +195,8 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     }
     blocks = result;
     if (stats_needed){
-        // for (int i = 0; i < n/m; i++) {
-        //     for (int j = 0; j < n/m; j++) {
-        //         if (blocks.find({i, j}) == blocks.end()) {
-        //             continue;
-        //         }
-        //         for (int x = 0; x < m; x++) {
-        //             B[i*m + x] += m;
-        //         }
-        //     }
-        // }
         for(const auto &entry : blocks){
             int i=entry.first.first;
-            //int j=entry.first.second;
             for (int x = 0; x < m; x++) {
                 B[i*m + x] += m;
             }
@@ -268,7 +211,6 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     }
     return (stats_needed) ? row_statistics : vector<float>();
 }
-
 bool has_non_zero_element_own(vector<vector<int>>& block) {
     for (auto& row : block)
         for (int val : row)
@@ -276,7 +218,6 @@ bool has_non_zero_element_own(vector<vector<int>>& block) {
                 return true;
     return false;
 }
-
 void remove_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     std::vector<std::pair<int, int>> keys_to_erase;
     #pragma omp parallel
@@ -297,7 +238,6 @@ void remove_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     }
     return;
 }
-
 vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
     removeMultiplesOf5_own(blocks);
     if (k==1){
@@ -322,7 +262,6 @@ vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, in
                 else{
                     matmul_multiply(left,temp,n,m,false);
                 }
-                
             }
             matmul_multiply(left,blocks,n,m,false);
             k=k/2;
