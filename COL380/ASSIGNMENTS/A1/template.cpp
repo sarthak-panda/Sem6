@@ -203,14 +203,21 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     }
     blocks = result;
     if (stats_needed){
-        for (int i = 0; i < n/m; i++) {
-            for (int j = 0; j < n/m; j++) {
-                if (blocks.find({i, j}) == blocks.end()) {
-                    continue;
-                }
-                for (int x = 0; x < m; x++) {
-                    B[i*m + x] += m;
-                }
+        // for (int i = 0; i < n/m; i++) {
+        //     for (int j = 0; j < n/m; j++) {
+        //         if (blocks.find({i, j}) == blocks.end()) {
+        //             continue;
+        //         }
+        //         for (int x = 0; x < m; x++) {
+        //             B[i*m + x] += m;
+        //         }
+        //     }
+        // }
+        for(const auto &entry : blocks){
+            int i=entry.first.first;
+            //int j=entry.first.second;
+            for (int x = 0; x < m; x++) {
+                B[i*m + x] += m;
             }
         }
         for (int i = 0; i < n; i++) {
