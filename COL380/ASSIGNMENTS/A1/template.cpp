@@ -47,7 +47,7 @@ map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
         keySet.insert(key);
     }
     std::uniform_int_distribution<int> dist_block(0, 255);
-    #pragma omp parallel if(black_box())
+    #pragma omp parallel
     #pragma omp single
     {
             for (int k = 0; k < b; k++) {
@@ -146,7 +146,7 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
     for (const auto &entry : blocks) keys2.push_back(entry.first);
     size_t n1 = keys1.size();
     size_t n2 = keys2.size();
-    #pragma omp parallel if(black_box())
+    #pragma omp parallel
     {
         #pragma omp single
         {
@@ -224,7 +224,7 @@ void remove_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     #pragma omp single
     {
         for (auto& entry : blocks) {
-            #pragma omp task firstprivate(entry) shared(keys_to_erase)
+            #pragma omp task firstprivate(entry) shared(keys_to_erase) if(black_box())
             {
                 vector<vector<int>>& block = entry.second;
                 if (!has_non_zero_element_own(block))
