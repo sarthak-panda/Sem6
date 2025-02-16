@@ -164,18 +164,18 @@ bool black_box() {
 }
 
 int main() {
-    // int n = 1000;
-    // int m = 50;
-    // int b = 60;
-    // int k = 2;
+    int n = 1000;
+    int m = 50;
+    int b = 60;
+    int k = 95;
     // int n=9;
     // int m=3;
     // int b=3;
     // int k=2;
-    int n = 100000;
-    int m = 8;
-    int b = 8095;
-    int k = 2;
+    // int n = 100000;
+    // int m = 50;
+    // int b = 1073;
+    // int k = 8;
 
     srand(time(0));
     map<pair<int, int>, vector<vector<int>>> my_blocks;
@@ -190,7 +190,7 @@ int main() {
     else
         cout<<"You have NOT generated the matrix correctly\n";
 	cout<<"Precomputation Started..."<<endl;
-	generate(blocks,20,m);
+	generate(blocks,100,m);
 	cout<<"Precomputation Ended..."<<endl;
     return 0;
 }
