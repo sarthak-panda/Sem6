@@ -26,7 +26,7 @@ CREATE TABLE public.player (
 
 CREATE TABLE public.season (
     season_id VARCHAR(20) NOT NULL,
-    YEAR SMALLINT NOT NULL CHECK (YEAR BETWEEN 1900 AND 2025),
+    year SMALLINT NOT NULL CHECK (year BETWEEN 1900 AND 2025),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     PRIMARY KEY (season_id)
@@ -185,7 +185,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.is_sold = TRUE THEN
         --i am assuming we do not need to update because only insert after auction done policy
-        INSERT INTO public.player_team VALUES (NEW.player_id,NEW.team_id,NEW.season_id)
+        INSERT INTO public.player_team VALUES (NEW.player_id,NEW.team_id,NEW.season_id);
     END IF;
     RETURN NEW;
 END;
@@ -232,15 +232,21 @@ EXECUTE FUNCTION match_id_validation();
 CREATE OR REPLACE FUNCTION automatic_season_id_generation()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.season_id := 'IPL' || NEW.year;
+    --NEW.season_id := 'IPL' || NEW.year;
+    NEW.season_id := CONCAT('IPL', NEW.year)::varchar(20);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS automated_season_id_generation ON public.season;
 
 CREATE TRIGGER automated_season_id_generation
 BEFORE INSERT ON public.season
 FOR EACH ROW
 EXECUTE FUNCTION automatic_season_id_generation();
+
+ALTER TABLE public.season
+ENABLE TRIGGER automated_season_id_generation;
 
 CREATE OR REPLACE FUNCTION check_wicketkeeper_for_stumped()
 RETURNS TRIGGER AS $$

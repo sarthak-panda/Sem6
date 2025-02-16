@@ -1,67 +1,12 @@
 -------------------------------------------------------------------------------
 Test set: com.example.PostgreSQLTest
 -------------------------------------------------------------------------------
-Tests run: 20, Failures: 9, Errors: 0, Skipped: 0, Time elapsed: 1.846 s <<< FAILURE! - in com.example.PostgreSQLTest
-com.example.PostgreSQLTest.testExtras_ExtraRunsNull  Time elapsed: 0.035 s  <<< FAILURE!
+Tests run: 20, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 1.676 s <<< FAILURE! - in com.example.PostgreSQLTest
+com.example.PostgreSQLTest.testMatch_MatchIdNull  Time elapsed: 0.008 s  <<< FAILURE!
 org.opentest4j.AssertionFailedError: 
-Failed null constraint for extra_runs: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
+Failed null constraint for match_id: ERROR: operator does not exist: integer - text
+  Hint: No operator matches the given name and argument types. You might need to add explicit type casts.
+  Where: PL/pgSQL function match_id_validation() line 20 at assignment ==> expected: <true> but was: <false>
 	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testExtras_ExtraRunsNull(PostgreSQLTest.java:264)
-
-com.example.PostgreSQLTest.testBatterScore_RunScoredNull  Time elapsed: 0.006 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for run_scored: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testBatterScore_RunScoredNull(PostgreSQLTest.java:248)
-
-com.example.PostgreSQLTest.testAwards_AwardTypeNull  Time elapsed: 0.006 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for award_type: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testAwards_AwardTypeNull(PostgreSQLTest.java:223)
-
-com.example.PostgreSQLTest.testPlayerMatch_RoleNull  Time elapsed: 0.003 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for role: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testPlayerMatch_RoleNull(PostgreSQLTest.java:312)
-
-com.example.PostgreSQLTest.testBalls_BallNumNull  Time elapsed: 0.003 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for ball_num: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testBalls_BallNumNull(PostgreSQLTest.java:239)
-
-com.example.PostgreSQLTest.testExtras_ExtraTypeNull  Time elapsed: 0.002 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for extra_type: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testExtras_ExtraTypeNull(PostgreSQLTest.java:257)
-
-com.example.PostgreSQLTest.testPlayerMatch_IsExtraNull  Time elapsed: 0.003 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for is_extra: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testPlayerMatch_IsExtraNull(PostgreSQLTest.java:319)
-
-com.example.PostgreSQLTest.testWickets_KindOutNull  Time elapsed: 0.009 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for kind_out: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testWickets_KindOutNull(PostgreSQLTest.java:360)
-
-com.example.PostgreSQLTest.testBalls_InningsNumNull  Time elapsed: 0 s  <<< FAILURE!
-org.opentest4j.AssertionFailedError: 
-Failed null constraint for innings_num: ERROR: insert or update on table "match" violates foreign key constraint "match_season_id_fkey"
-  Detail: Key (season_id)=(IPL2025) is not present in table "season". ==> expected: <true> but was: <false>
-	at com.example.PostgreSQLTest.testNullConstraint(PostgreSQLTest.java:192)
-	at com.example.PostgreSQLTest.testBalls_InningsNumNull(PostgreSQLTest.java:232)
+	at com.example.PostgreSQLTest.testMatch_MatchIdNull(PostgreSQLTest.java:273)
 
