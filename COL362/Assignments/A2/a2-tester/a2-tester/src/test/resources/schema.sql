@@ -3,8 +3,7 @@ SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = ON;
---SELECT pg_catalog.set_config('search_path', '', false);
-SET search_path = public;--changed
+SET search_path = public;
 SET check_function_bodies = FALSE;
 SET xmloption = CONTENT;
 SET client_min_messages = warning;
@@ -192,15 +191,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS automatic_insertion_into_player_team ON public.auction;
-
 CREATE TRIGGER automated_player_team_insertion
 BEFORE INSERT OR UPDATE ON public.auction --check with revanth
 FOR EACH ROW
 EXECUTE FUNCTION automatic_insertion_into_player_team();
-
-ALTER TABLE public.auction
-ENABLE TRIGGER ALL;
 
 CREATE OR REPLACE FUNCTION match_id_validation()
 RETURNS TRIGGER AS $$
@@ -209,6 +203,9 @@ DECLARE
     seq_part INTEGER;
     prev_match_id VARCHAR(20);
 BEGIN
+    IF NEW.match_id IS NULL THEN
+        RAISE EXCEPTION 'null';--check--changed
+    END IF;
     IF NEW.match_id !~ '^[a-zA-Z0-9]+[0-9]{3}$' THEN
         RAISE EXCEPTION 'sequence of match id violated';
     END IF;
@@ -222,7 +219,7 @@ BEGIN
             RAISE EXCEPTION 'sequence of match id violated';
         END IF;
     ELSE
-        prev_match_id := season_part || LPAD(seq_part - 1::TEXT, 3, '0');
+        prev_match_id := season_part || LPAD((seq_part - 1)::TEXT, 3, '0');
         IF NOT EXISTS (SELECT 1 FROM public.match WHERE match_id = prev_match_id) THEN
             RAISE EXCEPTION 'sequence of match id violated';
         END IF;
@@ -248,15 +245,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS automated_season_id_generation ON public.season;
-
 CREATE TRIGGER automated_season_id_generation
 BEFORE INSERT ON public.season
 FOR EACH ROW
 EXECUTE FUNCTION automatic_season_id_generation();
-
-ALTER TABLE public.season
-ENABLE TRIGGER automated_season_id_generation;
 
 CREATE OR REPLACE FUNCTION check_wicketkeeper_for_stumped()
 RETURNS TRIGGER AS $$
