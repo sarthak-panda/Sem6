@@ -12,7 +12,7 @@
 
 using namespace std;
 
-void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) {
+void removeMultiplesOf5_own_seq(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) {
     for (auto it = matrixBlocks.begin(); it != matrixBlocks.end(); ) {
         vector<vector<int>>& block = it->second;
         bool isBlockNonZero = false;
@@ -33,6 +33,44 @@ void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBloc
         } else {
             ++it;
         }
+    }
+}
+
+void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) {
+    vector<pair<int, int>> keys_to_erase;
+
+    #pragma omp parallel
+    #pragma omp single
+    {
+        for (auto& entry : matrixBlocks) {
+            #pragma omp task firstprivate(entry)
+            {
+                auto& [key, block] = entry;
+                bool isBlockNonZero = false;
+
+                // Zero out multiples of 5 and check for non-zero elements
+                for (auto& row : block) {
+                    for (auto& value : row) {
+                        if (value % 5 == 0) {
+                            value = 0;
+                        }
+                        if (value != 0) {
+                            isBlockNonZero = true;
+                        }
+                    }
+                }
+
+                if (!isBlockNonZero) {
+                    #pragma omp critical
+                    keys_to_erase.push_back(key);
+                }
+            }
+        }
+    }
+
+    // Erase outside the parallel region
+    for (auto& key : keys_to_erase) {
+        matrixBlocks.erase(key);
     }
 }
 
