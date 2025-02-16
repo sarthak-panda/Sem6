@@ -10,6 +10,10 @@
 #include <set>
 #include "check.h"
 using namespace std;
+void initialize_omp() {
+    int num_procs = omp_get_num_procs(); // Get available processors
+    omp_set_num_threads(num_procs);  // Set the number of threads
+}
 void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBlocks) {
     for (auto it = matrixBlocks.begin(); it != matrixBlocks.end(); ) {
         vector<vector<int>>& block = it->second;
@@ -32,6 +36,7 @@ void removeMultiplesOf5_own(map<pair<int, int>, vector<vector<int>>>& matrixBloc
     }
 }
 map<pair<int, int>, vector<vector<int>>> generate_matrix(int n, int m, int b) {
+    initialize_omp();
     map<pair<int, int>, vector<vector<int>>> matrix_map;
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -239,6 +244,7 @@ void remove_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     return;
 }
 vector<float> matmul(map<pair<int, int>, vector<vector<int>>>& blocks, int n, int m, int k) {
+    initialize_omp();
     removeMultiplesOf5_own(blocks);
     if (k==1){
         return vector<float>();
