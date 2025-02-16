@@ -234,11 +234,18 @@ bool has_non_zero_element_own(vector<vector<int>>& block) {
 
 void remove_zero_blocks(map<pair<int, int>, vector<vector<int>>>& blocks) {
     std::vector<std::pair<int, int>> keys_to_erase;
-    for (auto& entry : blocks) {
-        vector<vector<int>>& block = entry.second;
-
-        if (!has_non_zero_element_own(block))
-            keys_to_erase.push_back(entry.first);
+    #pragma omp parallel
+    #pragma omp single
+    {
+        for (auto& entry : blocks) {
+            #pragma omp task firstprivate(entry) shared(keys_to_erase)
+            {
+                vector<vector<int>>& block = entry.second;
+                if (!has_non_zero_element_own(block))
+                    #pragma omp critical
+                    keys_to_erase.push_back(entry.first);
+            }
+        }
     }
     for (auto& key : keys_to_erase) {
         blocks.erase(key);
