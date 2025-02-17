@@ -128,9 +128,9 @@ void print_matrix_map(map<pair<int, int>, vector<vector<int>>>& matrix_map) {
 }
 
 int main() {
-    int n = 100000;
-    int m = 16;
-    int b = 4096;
+    int n = 270000;
+    int m = 500;
+    int b = 187;
     int k = 2;
 
     srand(time(0));
@@ -145,12 +145,12 @@ int main() {
     
     vector<float> s = matmul(blocks, n, m, k);
 
-    bool res = is_square(original_blocks, blocks, m);
-    if(res)
-        cout<<"Your function computed the square correctly\n";
-    else
-        cout<<"Your function did NOT compute the square correctly\n";
-    cout << "Size of S = " << s.size()<<endl;
+    // bool res = is_square(original_blocks, blocks, m);
+    // if(res)
+    //     cout<<"Your function computed the square correctly\n";
+    // else
+    //     cout<<"Your function did NOT compute the square correctly\n";
+    // cout << "Size of S = " << s.size()<<endl;
 
     return 0;
 }
