@@ -166,7 +166,7 @@ bool black_box() {
 int main() {
     int n = 2000000;
     int m = 128;
-    int b = 7804;
+    int b = 3784;
     int k = 25;
     // int n=9;
     // int m=3;
@@ -190,7 +190,7 @@ int main() {
     else
         cout<<"You have NOT generated the matrix correctly\n";
 	cout<<"Precomputation Started..."<<endl;
-	generate(blocks,25,m);
+	generate(blocks,9,m);
 	cout<<"Precomputation Ended..."<<endl;
     return 0;
 }

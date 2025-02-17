@@ -106,10 +106,14 @@ int main() {
     // int m = 3;
     // int b = 3;
     // int k = 2;
-     int n = 100000;
-    int m = 16;
-    int b = 4096;
-    int k = 19;
+    //  int n = 100000;
+    // int m = 16;
+    // int b = 4096;
+    // int k = 19;
+    int n = 2000000;
+    int m = 128;
+    int b = 3784;
+    int k = 2;
     bool print_enable=true;
 
     srand(time(0));
