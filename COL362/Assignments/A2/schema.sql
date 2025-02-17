@@ -47,7 +47,7 @@ CREATE TABLE public.auction (
 	base_price BIGINT NOT NULL CHECK (base_price >= 1000000),
 	sold_price BIGINT,
 	is_sold BOOLEAN NOT NULL,
-	team_id VARCHAR(20) NOT NULL,
+	team_id VARCHAR(20),
 	PRIMARY KEY (auction_id),
 	FOREIGN KEY (season_id) REFERENCES public.season (season_id),
 	FOREIGN KEY (player_id) REFERENCES public.player (player_id),
