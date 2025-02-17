@@ -185,7 +185,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.is_sold = TRUE THEN
         --i am assuming we do not need to update because only insert after auction done policy
-        INSERT INTO public.player_team VALUES (NEW.player_id,NEW.team_id,NEW.season_id);
+        INSERT INTO public.player_team(player_id,team_id,season_id) VALUES (NEW.player_id,NEW.team_id,NEW.season_id);
     END IF;
     RETURN NEW;
 END;
@@ -297,7 +297,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER international_player_count_constraint
-BEFORE INSERT OR UPDATE ON public.player_team--to check with revanth if public.player should be used
+BEFORE INSERT OR UPDATE ON public.player_team
 FOR EACH ROW
 EXECUTE FUNCTION limit_on_international_players_per_team();
 
@@ -407,7 +407,9 @@ BEGIN
 
         WITH runs_o AS (
             SELECT striker_id, SUM(run_scored) AS total_runs
-            FROM public.batter_score
+            FROM public.balls b 
+            JOIN public.batter_score bs 
+                ON b.match_id = bs.match_id AND b.innings_num = bs.innings_num AND b.over_num = bs.over_num AND b.ball_num = bs.ball_num
             WHERE match_id = NEW.match_id
             GROUP BY striker_id
         ),
@@ -415,10 +417,10 @@ BEGIN
             SELECT striker_id
             FROM runs_o
             ORDER BY total_runs DESC, striker_id ASC
-            LIMIT 1;
+            LIMIT 1
         )
         SELECT striker_id INTO orange_cap_player
-        FROM ranked_runs
+        FROM ranked_runs;
 
         WITH wickets_o AS (
             SELECT b.bowler_id, COUNT(*) AS total_wickets
@@ -433,15 +435,21 @@ BEGIN
             SELECT bowler_id
             FROM wickets_o
             ORDER BY total_wickets DESC, bowler_id ASC
-            LIMIT 1;
+            LIMIT 1
         )
         SELECT bowler_id INTO purple_cap_player
-        FROM ranked_wickets\
+        FROM ranked_wickets;
         
-        INSERT INTO public.awards (match_id, award_type, player_id)
-        VALUES
-            (NEW.match_id, 'orange_cap', orange_cap_player),
-            (NEW.match_id, 'purple_cap', purple_cap_player);
+        IF orange_cap_player IS NOT NULL THEN
+            INSERT INTO public.awards (match_id, award_type, player_id) VALUES (NEW.match_id, 'orange_cap', orange_cap_player);
+        END IF;
+        IF purple_cap_player IS NOT NULL THEN
+            INSERT INTO public.awards (match_id, award_type, player_id) VALUES (NEW.match_id, 'purple_cap', purple_cap_player);
+        END IF;
+        -- INSERT INTO public.awards (match_id, award_type, player_id)
+        -- VALUES
+        --     (NEW.match_id, 'orange_cap', orange_cap_player),
+        --     (NEW.match_id, 'purple_cap', purple_cap_player);
     END IF;
     RETURN NEW;
 END;
@@ -477,7 +485,7 @@ BEGIN
                 WHERE season_id = OLD.season_id
             );
 
-        DELETE FROM public.wickets w--check with revanth
+        DELETE FROM public.wickets w
         USING public.balls b
         WHERE (
                 (w.player_out_id = OLD.player_id OR w.fielder_id = OLD.player_id)
@@ -691,7 +699,7 @@ WITH ball_agg AS (
             ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
 )
 SELECT
-    player_id::varchar(20),
+    player_id::varchar(20) AS player_id,
     -- total deliveries excluding no-balls & wides, check with revanth
     SUM(ball_delivered)::smallint AS "B",
     -- total wickets of the type 'bowled','caught','lbw','stumped'
