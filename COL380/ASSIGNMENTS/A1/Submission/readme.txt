@@ -6,7 +6,7 @@ Optimizations Performed:
 (2)Matrix Multiplication
 -> Utilized OpenMP's taskloop to parallelize the multiplication of matrix blocks, assigning each pairwise block multiplication to a separate task for concurrent execution.
 -> Changed the loop order for multiplying each pair of blocks from IJK to IKJ. Although the IKJ order had previously yielded the best performance in our last assignment, 
-the improvement was minimal in this case—likely due to the small block sizes in a sparse matrix. Therefore, continued using the IKJ order.
+the improvement was minimal in this case—likely due to the small block sizes in a sparse matrix.
 -> Instead of exponentiating by sequentially multiplying matrix A k times, we applied fast exponentiation to reduce the complexity of the exponentiation process to O(log k).
 
 Explanation of the Fast Exponentiation Algorithm:

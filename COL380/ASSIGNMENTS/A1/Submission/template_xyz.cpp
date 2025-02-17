@@ -170,8 +170,8 @@ vector<float> matmul_multiply(const map<pair<int, int>, vector<vector<int>>>& bl
                     int l=l1;
                     std::vector<std::vector<int>>temp_result(m, std::vector<int>(m, 0));
                     for (int x = 0; x < m; x++) {
-                        for (int z = 0; z < m; z++) {
-                            for (int y = 0; y < m; y++) {
+                        for (int y = 0; y < m; y++) {
+                            for (int z = 0; z < m; z++) {
                                 int value = entry[x][z] * entry2[z][y];
                                 temp_result[x][y] += value;
                                 if (stats_needed && value != 0) {
