@@ -1,0 +1,198 @@
+$ qsub -I -P col380.cs5221217.course -l select=1:ncpus=16:ngpus=0:mem=24G -l walltime=0:03:00
+$ perf stat ./check_6
+       0.014485469 seconds time elapsed
+$ perf stat ./check_6
+       0.011541128 seconds time elapsed
+$ perf stat ./check_6
+       0.011131968 seconds time elapsed
+$ perf stat ./check_6
+       0.011476589 seconds time elapsed
+$ perf stat ./check_8
+       0.016593877 seconds time elapsed
+$ perf stat ./check_8
+       0.016154066 seconds time elapsed
+$ perf stat ./check_8
+       0.017498828 seconds time elapsed
+$ perf stat ./check_8
+       0.017148329 seconds time elapsed
+$ perf stat ./check_10
+       0.042860433 seconds time elapsed
+$ perf stat ./check_10
+       0.040658763 seconds time elapsed
+$ perf stat ./check_10
+       0.040738457 seconds time elapsed
+$ perf stat ./check_10
+       0.043213901 seconds time elapsed
+$ perf stat ./check_12
+       0.190207670 seconds time elapsed
+$ perf stat ./check_12
+       0.194776278 seconds time elapsed
+$ perf stat ./check_12
+       0.196987415 seconds time elapsed
+$ perf stat ./check_12
+       0.204238093 seconds time elapsed
+$ qsub -I -P col380.cs5221217.course -l select=1:ncpus=8:ngpus=0:mem=24G -l walltime=0:03:00
+$ perf stat ./check_6
+       0.010304820 seconds time elapsed
+$ perf stat ./check_6
+       0.009478957 seconds time elapsed
+$ perf stat ./check_6
+       0.009218395 seconds time elapsed
+$ perf stat ./check_6
+       0.008972229 seconds time elapsed
+$ perf stat ./check_8
+       0.014561602 seconds time elapsed
+$ perf stat ./check_8
+       0.014347299 seconds time elapsed
+$ perf stat ./check_8
+       0.014337241 seconds time elapsed
+$ perf stat ./check_8
+       0.015367789 seconds time elapsed
+$ perf stat ./check_10
+       0.040339200 seconds time elapsed
+$ perf stat ./check_10
+       0.041470137 seconds time elapsed
+$ perf stat ./check_10
+       0.041810262 seconds time elapsed
+$ perf stat ./check_10
+       0.040033897 seconds time elapsed
+$ perf stat ./check_12
+       0.218820870 seconds time elapsed
+$ perf stat ./check_12
+       0.221754554 seconds time elapsed
+$ perf stat ./check_12
+       0.218386457 seconds time elapsed
+$ perf stat ./check_12
+       0.218509576 seconds time elapsed
+$ qsub -I -P col380.cs5221217.course -l select=1:ncpus=32:ngpus=0:mem=24G -l walltime=0:03:00
+$ perf stat ./check_6
+       0.016518759 seconds time elapsed
+$ perf stat ./check_6
+       0.016504530 seconds time elapsed
+$ perf stat ./check_6
+       0.015801111 seconds time elapsed
+$ perf stat ./check_6
+       0.017492537 seconds time elapsed
+$ perf stat ./check_8
+       0.023424928 seconds time elapsed
+$ perf stat ./check_8
+       0.023051120 seconds time elapsed
+$ perf stat ./check_8
+       0.021561030 seconds time elapsed
+$ perf stat ./check_8
+       0.022097741 seconds time elapsed
+$ perf stat ./check_10
+       0.050337844 seconds time elapsed
+$ perf stat ./check_10
+       0.050597537 seconds time elapsed
+$ perf stat ./check_10
+       0.049094908 seconds time elapsed
+$ perf stat ./check_10
+       0.049026224 seconds time elapsed
+$ perf stat ./check_12
+       0.194069061 seconds time elapsed
+$ perf stat ./check_12
+       0.197481660 seconds time elapsed
+$ perf stat ./check_12
+       0.192599669 seconds time elapsed
+$ perf stat ./check_12
+       0.193409786 seconds time elapsed
+$ qsub -I -P col380.cs5221217.course -l select=1:ncpus=40:ngpus=0:mem=24G -l walltime=0:03:00
+$ perf stat ./check_6
+       0.016971886 seconds time elapsed
+$ perf stat ./check_6
+       0.016415444 seconds time elapsed
+$ perf stat ./check_6
+       0.017506248 seconds time elapsed
+$ perf stat ./check_6
+       0.018064297 seconds time elapsed
+$ perf stat ./check_8
+       0.022750154 seconds time elapsed
+$ perf stat ./check_8
+       0.023199144 seconds time elapsed
+$ perf stat ./check_8
+       0.023513672 seconds time elapsed
+$ perf stat ./check_8
+       0.023442929 seconds time elapsed
+$ perf stat ./check_10
+       0.050755762 seconds time elapsed
+$ perf stat ./check_10
+       0.051720214 seconds time elapsed
+$ perf stat ./check_10
+       0.049090761 seconds time elapsed
+$ perf stat ./check_10
+       0.051121711 seconds time elapsed
+$ perf stat ./check_12
+       0.192273416 seconds time elapsed
+$ perf stat ./check_12
+       0.194994020 seconds time elapsed
+$ perf stat ./check_12
+       0.192186721 seconds time elapsed
+$ perf stat ./check_12
+       0.192584959 seconds time elapsed
+$ qsub -I -P col380.cs5221217.course -l select=1:ncpus=4:ngpus=0:mem=24G -l walltime=0:03:00
+$ perf stat ./check_6
+       0.009918069 seconds time elapsed
+$ perf stat ./check_6
+       0.009221958 seconds time elapsed
+$ perf stat ./check_6
+       0.008869367 seconds time elapsed
+$ perf stat ./check_6
+       0.008531369 seconds time elapsed
+$ perf stat ./check_8
+       0.015703807 seconds time elapsed
+$ perf stat ./check_8
+       0.015059914 seconds time elapsed
+$ perf stat ./check_8
+       0.015328106 seconds time elapsed
+$ perf stat ./check_8
+       0.014709886 seconds time elapsed
+$ perf stat ./check_10
+       0.046786755 seconds time elapsed
+$ perf stat ./check_10
+       0.046490187 seconds time elapsed
+$ perf stat ./check_10
+       0.046568339 seconds time elapsed
+$ perf stat ./check_10
+       0.047698742 seconds time elapsed
+$ perf stat ./check_12
+       0.279685252 seconds time elapsed
+$ perf stat ./check_12
+       0.279412790 seconds time elapsed
+$ perf stat ./check_12
+       0.276699583 seconds time elapsed
+$ perf stat ./check_12
+       0.280609514 seconds time elapsed
+$ qsub -I -P col380.cs5221217.course -l select=1:ncpus=2:ngpus=0:mem=24G -l walltime=0:03:00
+$ perf stat ./check_6
+       0.009773994 seconds time elapsed
+$ perf stat ./check_6
+       0.008876283 seconds time elapsed
+$ perf stat ./check_6
+       0.009018278 seconds time elapsed
+$ perf stat ./check_6
+       0.008835634 seconds time elapsed
+$ perf stat ./check_8
+       0.018152217 seconds time elapsed
+$ perf stat ./check_8
+       0.017586668 seconds time elapsed
+$ perf stat ./check_8
+       0.036333483 seconds time elapsed
+$ perf stat ./check_8
+       0.040460034 seconds time elapsed
+$ perf stat ./check_10
+       0.062760935 seconds time elapsed
+$ perf stat ./check_10
+       0.065730505 seconds time elapsed
+$ perf stat ./check_10
+       0.062279576 seconds time elapsed
+$ perf stat ./check_10
+       0.062864205 seconds time elapsed
+$ perf stat ./check_12
+       0.408903728 seconds time elapsed
+$ perf stat ./check_12
+       0.412925966 seconds time elapsed
+$ perf stat ./check_12
+       0.409880222 seconds time elapsed
+$ perf stat ./check_12
+       0.400900521 seconds time elapsed
