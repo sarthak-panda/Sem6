@@ -54,7 +54,7 @@ CREATE TABLE public.auction (
 	FOREIGN KEY (team_id) REFERENCES public.team (team_id),
     UNIQUE (player_id, team_id, season_id),
     CHECK (
-        (is_sold = FALSE AND sold_price IS NULL)--check WITH revanth
+        (is_sold = FALSE AND sold_price IS NULL)--
         OR
         (is_sold = TRUE AND sold_price IS NOT NULL AND team_id IS NOT NULL AND sold_price >= base_price)
     )
@@ -192,7 +192,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER automated_player_team_insertion
-BEFORE INSERT OR UPDATE ON public.auction --check with revanth
+BEFORE INSERT OR UPDATE ON public.auction --O
 FOR EACH ROW
 EXECUTE FUNCTION automatic_insertion_into_player_team();
 
@@ -428,7 +428,7 @@ BEGIN
             JOIN public.wickets w 
                 ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
             WHERE b.match_id = NEW.match_id
-                AND w.kind_out IN ('bowled', 'caught', 'lbw', 'stumped') -- or should i remove this condition so all accepted ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket') --check
+                AND w.kind_out IN ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket')--('bowled', 'caught', 'lbw', 'stumped') -- or should i remove this condition so all accepted ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket') --check
             GROUP BY b.bowler_id
         ),
         ranked_wickets AS (
@@ -686,7 +686,7 @@ WITH ball_agg AS (
         CASE 
             WHEN e.extra_type IN ('no_ball', 'wide') THEN 1---0 
             ELSE 1 
-        END AS ball_delivered,-- total deliveries excluding no-balls & wides, check with revanth
+        END AS ball_delivered,-- total deliveries excluding no-balls & wides
         COALESCE(bs.run_scored, 0) AS runs_batter,-- runs scored by the batter on this delivery
         COALESCE(e.extra_runs, 0) AS runs_extra,
         CASE -- total wickets of the type 'bowled','caught','lbw','stumped'
@@ -703,7 +703,7 @@ WITH ball_agg AS (
 )
 SELECT
     player_id::varchar(20) AS player_id,
-    -- total deliveries excluding no-balls & wides, check with revanth
+    -- total deliveries excluding no-balls & wides
     SUM(ball_delivered)::smallint AS "B",
     -- total wickets of the type 'bowled','caught','lbw','stumped'
     SUM(is_wicket)::smallint AS "W",
@@ -724,7 +724,7 @@ SELECT
 FROM ball_agg
 GROUP BY player_id;
 
---fielder stats--types of out ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'), i have a doubt hitwicket is neither used in bowler stat or fielder stat isn't it left out, ask revanth
+--fielder stats--types of out ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'), i have a doubt hitwicket is neither used in bowler stat or fielder stat isn't it left out
 CREATE OR REPLACE VIEW public.fielder_stats AS
 SELECT
     w.fielder_id::varchar(20) AS player_id,

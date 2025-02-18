@@ -54,7 +54,7 @@ CREATE TABLE public.auction (
 	FOREIGN KEY (team_id) REFERENCES public.team (team_id),
     UNIQUE (player_id, team_id, season_id),
     CHECK (
-        (is_sold = FALSE AND sold_price IS NULL)--O
+        (is_sold = FALSE AND sold_price IS NULL)--
         OR
         (is_sold = TRUE AND sold_price IS NOT NULL AND team_id IS NOT NULL AND sold_price >= base_price)
     )
@@ -428,7 +428,7 @@ BEGIN
             JOIN public.wickets w 
                 ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
             WHERE b.match_id = NEW.match_id
-                AND w.kind_out IN ('bowled', 'caught', 'lbw', 'stumped') -- or should i remove this condition so all accepted ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket') --check
+                AND w.kind_out IN ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket')--('bowled', 'caught', 'lbw', 'stumped') -- or should i remove this condition so all accepted ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket') --check
             GROUP BY b.bowler_id
         ),
         ranked_wickets AS (
