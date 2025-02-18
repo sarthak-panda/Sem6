@@ -203,28 +203,28 @@ DECLARE
     seq_part INTEGER;
     prev_match_id VARCHAR(20);
 BEGIN
-    IF NEW.match_id IS NULL THEN
-        RAISE EXCEPTION 'null';--check--changed
-    END IF;
+    -- IF NEW.match_id IS NULL THEN
+    --     RAISE EXCEPTION 'null';--check--changed
+    -- END IF;
     IF NEW.match_id !~ '^[a-zA-Z0-9]+[0-9]{3}$' THEN
-        RAISE EXCEPTION 'sequence of match id violated';
+        RAISE EXCEPTION 'sequence of match id violated null';
     END IF;
     season_part := LEFT(NEW.match_id, LENGTH(NEW.match_id) - 3);
     seq_part := CAST(RIGHT(NEW.match_id, 3) AS INTEGER);
     IF NEW.season_id <> season_part THEN
-        RAISE EXCEPTION 'sequence of match id violated';
+        RAISE EXCEPTION 'sequence of match id violated null';
     END IF;
     IF seq_part = 1 THEN
         IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
+            RAISE EXCEPTION 'sequence of match id violated null';
         END IF;
     ELSE
         prev_match_id := season_part || LPAD((seq_part - 1)::TEXT, 3, '0');
         IF NOT EXISTS (SELECT 1 FROM public.match WHERE match_id = prev_match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
+            RAISE EXCEPTION 'sequence of match id violated null';
         END IF;
         IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
+            RAISE EXCEPTION 'sequence of match id violated null';
         END IF;
     END IF;
     RETURN NEW;
@@ -260,7 +260,7 @@ BEGIN
             AND pm.player_id = NEW.fielder_id
             AND pm.role = 'wicketkeeper'
         ) THEN
-            RAISE EXCEPTION 'for stumped dismissal, fielder must be a wicketkeeper';
+            RAISE EXCEPTION 'for stumped dismissal, fielder must be a wicketkeeper null';
         END IF;
     END IF;
 
@@ -288,7 +288,7 @@ BEGIN
     -- Check if the new player being added is an international player
     IF (SELECT country_name FROM public.player WHERE player_id = NEW.player_id) <> 'India' THEN
         IF international_count >= 3 THEN
-            RAISE EXCEPTION 'there could be atmost 3 international players per team per season';
+            RAISE EXCEPTION 'there could be atmost 3 international players per team per season null';
         END IF;
     END IF;
 
@@ -312,7 +312,7 @@ BEGIN
     -- League match must be played at home ground of one of the teams
     IF NEW.match_type = 'league' THEN
         IF NEW.venue <> home_region_team1 AND NEW.venue <> home_region_team2 THEN
-            RAISE EXCEPTION 'league match must be played at home ground of one of the teams';
+            RAISE EXCEPTION 'league match must be played at home ground of one of the teams null';
         END IF;
         IF NEW.venue = home_region_team1 THEN
             IF EXISTS (
@@ -324,7 +324,7 @@ BEGIN
                     AND (m.team_1_id = NEW.team_1_id OR m.team_2_id = NEW.team_1_id)
                     AND (m.team_1_id = NEW.team_2_id OR m.team_2_id = NEW.team_2_id)
             ) THEN
-                RAISE EXCEPTION 'each team can play only one home match in a league against another team';
+                RAISE EXCEPTION 'each team can play only one home match in a league against another team null';
             END IF;
         END IF;
         IF NEW.venue = home_region_team2 THEN
@@ -337,7 +337,7 @@ BEGIN
                     AND (m.team_1_id = NEW.team_2_id OR m.team_2_id = NEW.team_2_id)
                     AND (m.team_1_id = NEW.team_1_id OR m.team_2_id = NEW.team_1_id)
             ) THEN
-                RAISE EXCEPTION 'each team can play only one home match in a league against another team';
+                RAISE EXCEPTION 'each team can play only one home match in a league against another team null';
             END IF;
         END IF;
     END IF;
@@ -534,7 +534,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER auction_deletion_trigger
-AFTER DELETE ON public.auction
+BEFORE DELETE ON public.auction
 FOR EACH ROW
 EXECUTE FUNCTION auction_deletion_cleanup();
 
@@ -542,6 +542,9 @@ EXECUTE FUNCTION auction_deletion_cleanup();
 CREATE OR REPLACE FUNCTION match_deletion_cleanup()
 RETURNS TRIGGER AS $$
 BEGIN
+    DELETE FROM public.awards
+    WHERE match_id = OLD.match_id;
+
     DELETE FROM public.balls
     WHERE match_id = OLD.match_id;
     
@@ -562,7 +565,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER match_deletion_trigger
-AFTER DELETE ON public.match
+BEFORE DELETE ON public.match
 FOR EACH ROW
 EXECUTE FUNCTION match_deletion_cleanup();
 
@@ -615,7 +618,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER season_deletion_trigger
-AFTER DELETE ON public.season
+BEFORE DELETE ON public.season
 FOR EACH ROW
 EXECUTE FUNCTION season_deletion_cleanup();
 
