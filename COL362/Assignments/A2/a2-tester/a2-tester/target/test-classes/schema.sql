@@ -640,9 +640,22 @@ WITH innings_agg AS (
             END
         ) AS boundary_hits,
         CASE 
-            WHEN MAX(w.player_out_id) = b.striker_id THEN 1 
+            WHEN MAX(
+                    CASE 
+                    WHEN w.player_out_id = b.striker_id THEN 1
+                    ELSE 0
+                    END
+                ) = 1 
+                OR EXISTS (
+                    SELECT 1
+                    FROM public.wickets w2
+                    JOIN public.balls b2 
+                    ON w2.match_id = b2.match_id AND w2.innings_num = b2.innings_num AND w2.over_num = b2.over_num AND w2.ball_num = b2.ball_num
+                    WHERE w2.kind_out = 'runout' AND w2.player_out_id = b2.non_striker_id AND b2.non_striker_id = b.striker_id  AND b2.match_id = b.match_id AND b2.innings_num = b.innings_num
+                )
+            THEN 1 
             ELSE 0 
-        END AS is_out     
+            END AS is_out   
     FROM public.balls b
     LEFT JOIN public.batter_score bs
             ON b.match_id = bs.match_id AND b.innings_num = bs.innings_num AND b.over_num = bs.over_num AND b.ball_num = bs.ball_num
