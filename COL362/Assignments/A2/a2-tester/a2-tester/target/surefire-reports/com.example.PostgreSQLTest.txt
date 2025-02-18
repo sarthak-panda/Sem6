@@ -1,8 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.example.PostgreSQLTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 1.645 s <<< FAILURE! - in com.example.PostgreSQLTest
-com.example.PostgreSQLTest  Time elapsed: 1.645 s  <<< ERROR!
-org.postgresql.util.PSQLException: FATAL: database "cricket_db" does not exist
-	at com.example.PostgreSQLTest.setup(PostgreSQLTest.java:13)
-
+Tests run: 20, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.606 s - in com.example.PostgreSQLTest
