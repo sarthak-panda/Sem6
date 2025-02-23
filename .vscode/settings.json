@@ -281,6 +281,11 @@
 			"folderPath": "Sem6\\COL380\\Lectures\\W7.1_sync2.pdf\\",
 			"color": "foldercolorizer.color_00ff00",
 			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Lectures\\10-indexing-b+trees.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		}
 	],
 	"files.associations": {
