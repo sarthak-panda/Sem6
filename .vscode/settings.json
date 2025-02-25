@@ -307,6 +307,21 @@
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\18.pdf\\",
 			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL362\\Assignments\\A2\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\HUL211\\LECTURES\\Tutorial\\tut0.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\HUL211\\LECTURES\\Tutorial\\tut1.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		}
 	],
 	"files.associations": {
