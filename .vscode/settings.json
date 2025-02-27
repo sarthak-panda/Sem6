@@ -347,6 +347,16 @@
 			"folderPath": "Sem6\\HUL211\\LECTURES\\lec2.pdf\\",
 			"color": "foldercolorizer.color_00ff00",
 			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\HUL211\\LECTURES\\lec1.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\HUL211\\LECTURES\\lec0.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		}
 	],
 	"files.associations": {
