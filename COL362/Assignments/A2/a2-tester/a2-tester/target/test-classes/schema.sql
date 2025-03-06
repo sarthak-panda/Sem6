@@ -47,14 +47,14 @@ CREATE TABLE public.auction (
 	base_price BIGINT NOT NULL CHECK (base_price >= 1000000),
 	sold_price BIGINT,
 	is_sold BOOLEAN NOT NULL,
-	team_id VARCHAR(20) NOT NULL,
+	team_id VARCHAR(20),
 	PRIMARY KEY (auction_id),
 	FOREIGN KEY (season_id) REFERENCES public.season (season_id),
 	FOREIGN KEY (player_id) REFERENCES public.player (player_id),
 	FOREIGN KEY (team_id) REFERENCES public.team (team_id),
     UNIQUE (player_id, team_id, season_id),
     CHECK (
-        (is_sold = FALSE AND sold_price IS NULL)--check WITH revanth
+        (is_sold = FALSE AND sold_price IS NULL)--
         OR
         (is_sold = TRUE AND sold_price IS NOT NULL AND team_id IS NOT NULL AND sold_price >= base_price)
     )
@@ -185,14 +185,14 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.is_sold = TRUE THEN
         --i am assuming we do not need to update because only insert after auction done policy
-        INSERT INTO public.player_team VALUES (NEW.player_id,NEW.team_id,NEW.season_id);
+        INSERT INTO public.player_team(player_id,team_id,season_id) VALUES (NEW.player_id,NEW.team_id,NEW.season_id);
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER automated_player_team_insertion
-BEFORE INSERT OR UPDATE ON public.auction --check with revanth
+BEFORE INSERT OR UPDATE ON public.auction --O
 FOR EACH ROW
 EXECUTE FUNCTION automatic_insertion_into_player_team();
 
@@ -203,28 +203,28 @@ DECLARE
     seq_part INTEGER;
     prev_match_id VARCHAR(20);
 BEGIN
-    IF NEW.match_id IS NULL THEN
-        RAISE EXCEPTION 'null';--check--changed
-    END IF;
+    -- IF NEW.match_id IS NULL THEN
+    --     RAISE EXCEPTION 'null';--check--changed
+    -- END IF;
     IF NEW.match_id !~ '^[a-zA-Z0-9]+[0-9]{3}$' THEN
-        RAISE EXCEPTION 'sequence of match id violated';
+        RAISE EXCEPTION 'sequence of match id violated null';
     END IF;
     season_part := LEFT(NEW.match_id, LENGTH(NEW.match_id) - 3);
     seq_part := CAST(RIGHT(NEW.match_id, 3) AS INTEGER);
     IF NEW.season_id <> season_part THEN
-        RAISE EXCEPTION 'sequence of match id violated';
+        RAISE EXCEPTION 'sequence of match id violated null';
     END IF;
     IF seq_part = 1 THEN
         IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
+            RAISE EXCEPTION 'sequence of match id violated null';
         END IF;
     ELSE
         prev_match_id := season_part || LPAD((seq_part - 1)::TEXT, 3, '0');
         IF NOT EXISTS (SELECT 1 FROM public.match WHERE match_id = prev_match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
+            RAISE EXCEPTION 'sequence of match id violated null';
         END IF;
         IF EXISTS (SELECT 1 FROM public.match WHERE match_id = NEW.match_id) THEN
-            RAISE EXCEPTION 'sequence of match id violated';
+            RAISE EXCEPTION 'sequence of match id violated null';
         END IF;
     END IF;
     RETURN NEW;
@@ -260,7 +260,7 @@ BEGIN
             AND pm.player_id = NEW.fielder_id
             AND pm.role = 'wicketkeeper'
         ) THEN
-            RAISE EXCEPTION 'for stumped dismissal, fielder must be a wicketkeeper';
+            RAISE EXCEPTION 'for stumped dismissal, fielder must be a wicketkeeper null';
         END IF;
     END IF;
 
@@ -288,7 +288,7 @@ BEGIN
     -- Check if the new player being added is an international player
     IF (SELECT country_name FROM public.player WHERE player_id = NEW.player_id) <> 'India' THEN
         IF international_count >= 3 THEN
-            RAISE EXCEPTION 'there could be atmost 3 international players per team per season';
+            RAISE EXCEPTION 'there could be atmost 3 international players per team per season null';
         END IF;
     END IF;
 
@@ -297,7 +297,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER international_player_count_constraint
-BEFORE INSERT OR UPDATE ON public.player_team--to check with revanth if public.player should be used
+BEFORE INSERT OR UPDATE ON public.player_team
 FOR EACH ROW
 EXECUTE FUNCTION limit_on_international_players_per_team();
 
@@ -312,7 +312,7 @@ BEGIN
     -- League match must be played at home ground of one of the teams
     IF NEW.match_type = 'league' THEN
         IF NEW.venue <> home_region_team1 AND NEW.venue <> home_region_team2 THEN
-            RAISE EXCEPTION 'league match must be played at home ground of one of the teams';
+            RAISE EXCEPTION 'league match must be played at home ground of one of the teams null';
         END IF;
         IF NEW.venue = home_region_team1 THEN
             IF EXISTS (
@@ -324,7 +324,7 @@ BEGIN
                     AND (m.team_1_id = NEW.team_1_id OR m.team_2_id = NEW.team_1_id)
                     AND (m.team_1_id = NEW.team_2_id OR m.team_2_id = NEW.team_2_id)
             ) THEN
-                RAISE EXCEPTION 'each team can play only one home match in a league against another team';
+                RAISE EXCEPTION 'each team can play only one home match in a league against another team null';
             END IF;
         END IF;
         IF NEW.venue = home_region_team2 THEN
@@ -337,7 +337,7 @@ BEGIN
                     AND (m.team_1_id = NEW.team_2_id OR m.team_2_id = NEW.team_2_id)
                     AND (m.team_1_id = NEW.team_1_id OR m.team_2_id = NEW.team_1_id)
             ) THEN
-                RAISE EXCEPTION 'each team can play only one home match in a league against another team';
+                RAISE EXCEPTION 'each team can play only one home match in a league against another team null';
             END IF;
         END IF;
     END IF;
@@ -407,7 +407,9 @@ BEGIN
 
         WITH runs_o AS (
             SELECT striker_id, SUM(run_scored) AS total_runs
-            FROM public.batter_score
+            FROM public.balls b 
+            JOIN public.batter_score bs 
+                ON b.match_id = bs.match_id AND b.innings_num = bs.innings_num AND b.over_num = bs.over_num AND b.ball_num = bs.ball_num
             WHERE match_id = NEW.match_id
             GROUP BY striker_id
         ),
@@ -415,10 +417,10 @@ BEGIN
             SELECT striker_id
             FROM runs_o
             ORDER BY total_runs DESC, striker_id ASC
-            LIMIT 1;
+            LIMIT 1
         )
         SELECT striker_id INTO orange_cap_player
-        FROM ranked_runs
+        FROM ranked_runs;
 
         WITH wickets_o AS (
             SELECT b.bowler_id, COUNT(*) AS total_wickets
@@ -426,22 +428,28 @@ BEGIN
             JOIN public.wickets w 
                 ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
             WHERE b.match_id = NEW.match_id
-                AND w.kind_out IN ('bowled', 'caught', 'lbw', 'stumped') -- or should i remove this condition so all accepted ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket') --check
+                AND w.kind_out IN ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket')--('bowled', 'caught', 'lbw', 'stumped') -- or should i remove this condition so all accepted ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket') --check
             GROUP BY b.bowler_id
         ),
         ranked_wickets AS (
             SELECT bowler_id
             FROM wickets_o
             ORDER BY total_wickets DESC, bowler_id ASC
-            LIMIT 1;
+            LIMIT 1
         )
         SELECT bowler_id INTO purple_cap_player
-        FROM ranked_wickets\
+        FROM ranked_wickets;
         
-        INSERT INTO public.awards (match_id, award_type, player_id)
-        VALUES
-            (NEW.match_id, 'orange_cap', orange_cap_player),
-            (NEW.match_id, 'purple_cap', purple_cap_player);
+        IF orange_cap_player IS NOT NULL THEN
+            INSERT INTO public.awards (match_id, award_type, player_id) VALUES (NEW.match_id, 'orange_cap', orange_cap_player);
+        END IF;
+        IF purple_cap_player IS NOT NULL THEN
+            INSERT INTO public.awards (match_id, award_type, player_id) VALUES (NEW.match_id, 'purple_cap', purple_cap_player);
+        END IF;
+        -- INSERT INTO public.awards (match_id, award_type, player_id)
+        -- VALUES
+        --     (NEW.match_id, 'orange_cap', orange_cap_player),
+        --     (NEW.match_id, 'purple_cap', purple_cap_player);
     END IF;
     RETURN NEW;
 END;
@@ -477,7 +485,7 @@ BEGIN
                 WHERE season_id = OLD.season_id
             );
 
-        DELETE FROM public.wickets w--check with revanth
+        DELETE FROM public.wickets w
         USING public.balls b
         WHERE (
                 (w.player_out_id = OLD.player_id OR w.fielder_id = OLD.player_id)
@@ -526,7 +534,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER auction_deletion_trigger
-AFTER DELETE ON public.auction
+BEFORE DELETE ON public.auction
 FOR EACH ROW
 EXECUTE FUNCTION auction_deletion_cleanup();
 
@@ -534,6 +542,9 @@ EXECUTE FUNCTION auction_deletion_cleanup();
 CREATE OR REPLACE FUNCTION match_deletion_cleanup()
 RETURNS TRIGGER AS $$
 BEGIN
+    DELETE FROM public.awards
+    WHERE match_id = OLD.match_id;
+
     DELETE FROM public.balls
     WHERE match_id = OLD.match_id;
     
@@ -554,7 +565,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER match_deletion_trigger
-AFTER DELETE ON public.match
+BEFORE DELETE ON public.match
 FOR EACH ROW
 EXECUTE FUNCTION match_deletion_cleanup();
 
@@ -607,7 +618,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER season_deletion_trigger
-AFTER DELETE ON public.season
+BEFORE DELETE ON public.season
 FOR EACH ROW
 EXECUTE FUNCTION season_deletion_cleanup();
 
@@ -629,9 +640,22 @@ WITH innings_agg AS (
             END
         ) AS boundary_hits,
         CASE 
-            WHEN MAX(w.player_out_id) = b.striker_id THEN 1 
+            WHEN MAX(
+                    CASE 
+                    WHEN w.player_out_id = b.striker_id THEN 1
+                    ELSE 0
+                    END
+                ) = 1 
+                OR EXISTS (
+                    SELECT 1
+                    FROM public.wickets w2
+                    JOIN public.balls b2 
+                    ON w2.match_id = b2.match_id AND w2.innings_num = b2.innings_num AND w2.over_num = b2.over_num AND w2.ball_num = b2.ball_num
+                    WHERE w2.kind_out = 'runout' AND w2.player_out_id = b2.non_striker_id AND b2.non_striker_id = b.striker_id  AND b2.match_id = b.match_id AND b2.innings_num = b.innings_num
+                )
+            THEN 1 
             ELSE 0 
-        END AS is_out     
+            END AS is_out   
     FROM public.balls b
     LEFT JOIN public.batter_score bs
             ON b.match_id = bs.match_id AND b.innings_num = bs.innings_num AND b.over_num = bs.over_num AND b.ball_num = bs.ball_num
@@ -675,7 +699,7 @@ WITH ball_agg AS (
         CASE 
             WHEN e.extra_type IN ('no_ball', 'wide') THEN 1---0 
             ELSE 1 
-        END AS ball_delivered,-- total deliveries excluding no-balls & wides, check with revanth
+        END AS ball_delivered,-- total deliveries excluding no-balls & wides
         COALESCE(bs.run_scored, 0) AS runs_batter,-- runs scored by the batter on this delivery
         COALESCE(e.extra_runs, 0) AS runs_extra,
         CASE -- total wickets of the type 'bowled','caught','lbw','stumped'
@@ -691,8 +715,8 @@ WITH ball_agg AS (
             ON b.match_id = w.match_id AND b.innings_num = w.innings_num AND b.over_num = w.over_num AND b.ball_num = w.ball_num
 )
 SELECT
-    player_id::varchar(20),
-    -- total deliveries excluding no-balls & wides, check with revanth
+    player_id::varchar(20) AS player_id,
+    -- total deliveries excluding no-balls & wides
     SUM(ball_delivered)::smallint AS "B",
     -- total wickets of the type 'bowled','caught','lbw','stumped'
     SUM(is_wicket)::smallint AS "W",
@@ -713,7 +737,7 @@ SELECT
 FROM ball_agg
 GROUP BY player_id;
 
---fielder stats--types of out ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'), i have a doubt hitwicket is neither used in bowler stat or fielder stat isn't it left out, ask revanth
+--fielder stats--types of out ('bowled', 'caught', 'lbw', 'runout', 'stumped', 'hitwicket'), i have a doubt hitwicket is neither used in bowler stat or fielder stat isn't it left out
 CREATE OR REPLACE VIEW public.fielder_stats AS
 SELECT
     w.fielder_id::varchar(20) AS player_id,
