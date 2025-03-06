@@ -1,0 +1,109 @@
+execve("./test", ["./test"], 0x7ffd6d213690 /* 23 vars */) = 0
+brk(NULL)                               = 0x562f02925000
+arch_prctl(0x3001 /* ARCH_??? */, 0x7ffccad90c60) = -1 EINVAL (Invalid argument)
+mmap(NULL, 8192, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f51ec2c6000
+access("/etc/ld.so.preload", R_OK)      = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3
+newfstatat(3, "", {st_mode=S_IFREG|0644, st_size=22983, ...}, AT_EMPTY_PATH) = 0
+mmap(NULL, 22983, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f51ec2c0000
+close(3)                                = 0
+openat(AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+read(3, "\177ELF\2\1\1\3\0\0\0\0\0\0\0\0\3\0>\0\1\0\0\0P\237\2\0\0\0\0\0"..., 832) = 832
+pread64(3, "\6\0\0\0\4\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0"..., 784, 64) = 784
+pread64(3, "\4\0\0\0 \0\0\0\5\0\0\0GNU\0\2\0\0\300\4\0\0\0\3\0\0\0\0\0\0\0"..., 48, 848) = 48
+pread64(3, "\4\0\0\0\24\0\0\0\3\0\0\0GNU\0\315A\vq\17\17\tLh2\355\331Y1\0m"..., 68, 896) = 68
+newfstatat(3, "", {st_mode=S_IFREG|0755, st_size=2220400, ...}, AT_EMPTY_PATH) = 0
+pread64(3, "\6\0\0\0\4\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0@\0\0\0\0\0\0\0"..., 784, 64) = 784
+mmap(NULL, 2264656, PROT_READ, MAP_PRIVATE|MAP_DENYWRITE, 3, 0) = 0x7f51ec000000
+mprotect(0x7f51ec028000, 2023424, PROT_NONE) = 0
+mmap(0x7f51ec028000, 1658880, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x28000) = 0x7f51ec028000
+mmap(0x7f51ec1bd000, 360448, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1bd000) = 0x7f51ec1bd000
+mmap(0x7f51ec216000, 24576, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x215000) = 0x7f51ec216000
+mmap(0x7f51ec21c000, 52816, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x7f51ec21c000
+close(3)                                = 0
+mmap(NULL, 12288, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f51ec2bd000
+arch_prctl(ARCH_SET_FS, 0x7f51ec2bd740) = 0
+set_tid_address(0x7f51ec2bda10)         = 1184
+set_robust_list(0x7f51ec2bda20, 24)     = 0
+rseq(0x7f51ec2be0e0, 0x20, 0, 0x53053053) = 0
+mprotect(0x7f51ec216000, 16384, PROT_READ) = 0
+mprotect(0x562f02215000, 4096, PROT_READ) = 0
+mprotect(0x7f51ec300000, 8192, PROT_READ) = 0
+prlimit64(0, RLIMIT_STACK, NULL, {rlim_cur=8192*1024, rlim_max=RLIM64_INFINITY}) = 0
+munmap(0x7f51ec2c0000, 22983)           = 0
+getpid()                                = 1184
+syscall_0x1c3(0x7ffccad90e28, 0x7ffccad90e38, 0x7f51ec0ec04b, 0x7f51ec21bf10, 0x7f51ec2ce040, 0) = 0
+newfstatat(1, "", {st_mode=S_IFCHR|0620, st_rdev=makedev(0x88, 0), ...}, AT_EMPTY_PATH) = 0
+getrandom("\xc8\x95\xd3\x3d\xca\x28\x43\x05", 8, GRND_NONBLOCK) = 8
+brk(NULL)                               = 0x562f02925000
+brk(0x562f02946000)                     = 0x562f02946000
+write(1, "sys_hello returned: 0\n", 22sys_hello returned: 0
+) = 22
+syscall_0x1c4(0x4a0, 0, 0x1, 0, 0x7ffccad90b47, 0) = 0
+write(1, "sys_register (pid 1184) returned"..., 36sys_register (pid 1184) returned: 0
+) = 36
+mmap(NULL, 17829888, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f51eaeff000
+write(1, "Allocated 17MB of memory\n", 25Allocated 17MB of memory
+) = 25
+openat(AT_FDCWD, "dummy1.txt", O_RDWR|O_CREAT, 0666) = 3
+write(1, "Opened file: dummy1.txt\n", 24Opened file: dummy1.txt
+) = 24
+openat(AT_FDCWD, "dummy2.txt", O_RDWR|O_CREAT, 0666) = 4
+write(1, "Opened file: dummy2.txt\n", 24Opened file: dummy2.txt
+) = 24
+openat(AT_FDCWD, "dummy3.txt", O_RDWR|O_CREAT, 0666) = 5
+write(1, "Opened file: dummy3.txt\n", 24Opened file: dummy3.txt
+) = 24
+syscall_0x1c5(0x7ffccad90cb0, 0x4a0, 0x1, 0, 0x7fffffff, 0) = 0
+write(1, "\n", 1
+)                       = 1
+write(1, "Initial sys_fetch returned: 0\n", 30Initial sys_fetch returned: 0
+) = 30
+write(1, "Process ID: 1184\n", 17Process ID: 1184
+)      = 17
+write(1, "Heap Size: 0 MB\n", 16Heap Size: 0 MB
+)       = 16
+write(1, "Open File Count: 3\n", 19Open File Count: 3
+)    = 19
+write(1, "Heap Quota: -1, File Quota: -1, "..., 54Heap Quota: -1, File Quota: -1, Quotas defined: false
+) = 54
+syscall_0x1c7(0x4a0, 0x7, 0x5, 0, 0x7fffffff, 0) = 0
+write(1, "\n", 1
+)                       = 1
+write(1, "sys_resource_cap (7 MB heap, 5 f"..., 50sys_resource_cap (7 MB heap, 5 files) returned: 0
+) = 50
+mmap(NULL, 1052672, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x7f51eadfe000
+write(1, "Allocated additional 1 MB of mem"..., 50Allocated additional 1 MB of memory (total ~6 MB)
+) = 50
+openat(AT_FDCWD, "dummy4.txt", O_RDWR|O_CREAT, 0666) = 6
+write(1, "Opened file: dummy4.txt\n", 24Opened file: dummy4.txt
+) = 24
+syscall_0x1c5(0x7ffccad90cb0, 0x4a0, 0x1, 0, 0x7fffffff, 0) = 0
+write(1, "\n", 1
+)                       = 1
+write(1, "After increase, sys_fetch return"..., 38After increase, sys_fetch returned: 0
+) = 38
+write(1, "Process ID: 1184\n", 17Process ID: 1184
+)      = 17
+write(1, "Heap Size: 0 MB\n", 16Heap Size: 0 MB
+)       = 16
+write(1, "Open File Count: 4\n", 19Open File Count: 4
+)    = 19
+write(1, "Heap Quota: 7, File Quota: 5, Qu"..., 51Heap Quota: 7, File Quota: 5, Quotas defined: true
+) = 51
+syscall_0x1c8(0x4a0, 0, 0x1, 0, 0x7fffffff, 0) = 0
+write(1, "\n", 1
+)                       = 1
+write(1, "sys_resource_reset returned: 0\n", 31sys_resource_reset returned: 0
+) = 31
+syscall_0x1c6(0x4a0, 0, 0x1, 0, 0x7ffccad90b47, 0) = 0
+write(1, "sys_deregister returned: 0\n", 27sys_deregister returned: 0
+) = 27
+close(3)                                = 0
+close(4)                                = 0
+close(5)                                = 0
+close(6)                                = 0
+munmap(0x7f51eaeff000, 17829888)        = 0
+munmap(0x7f51eadfe000, 1052672)         = 0
+exit_group(0)                           = ?
++++ exited with 0 +++
