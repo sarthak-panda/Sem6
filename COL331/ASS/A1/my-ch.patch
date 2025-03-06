@@ -1,0 +1,506 @@
+diff --git a/Kbuild b/Kbuild
+index 464b34a08..a29be63e1 100644
+--- a/Kbuild
++++ b/Kbuild
+@@ -97,3 +97,4 @@ obj-$(CONFIG_SAMPLES)	+= samples/
+ obj-$(CONFIG_NET)	+= net/
+ obj-y			+= virt/
+ obj-y			+= $(ARCH_DRIVERS)
++obj-y 			+= hello/
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index c84d12608..7245d9404 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -372,6 +372,12 @@
+ 448	common	process_mrelease	sys_process_mrelease
+ 449	common	futex_waitv		sys_futex_waitv
+ 450	common	set_mempolicy_home_node	sys_set_mempolicy_home_node
++451 common hello sys_hello
++452 common regi sys_register
++453 common fetch sys_fetch
++454 common deregi sys_deregister
++455 common resource_cap sys_resource_cap
++456 common resource_reset sys_resource_reset
+ 
+ #
+ # Due to a historical design error, certain syscalls are numbered differently
+diff --git a/fs/open.c b/fs/open.c
+index a81319b61..3aa83d28f 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -33,6 +33,7 @@
+ #include <linux/dnotify.h>
+ #include <linux/compat.h>
+ #include <linux/mnt_idmapping.h>
++#include <linux/hello.h>
+ 
+ #include "internal.h"
+ 
+@@ -1326,20 +1327,59 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
+ 	return do_sys_openat2(dfd, filename, &how);
+ }
+ 
++static bool update_filecount(void) {
++    bool should_kill = false;
++    pid_t curr_pid = current->pid;
++    struct pid_node *node;
++    struct list_head *pos, *n;
++    mutex_lock(&monitored_list_mutex);
++    list_for_each_safe(pos, n, &monitored_pids_head_node) {
++        node = list_entry(pos, struct pid_node, next_prev_list);
++        if (node->proc_resource->pid == curr_pid) {
++            node->proc_resource->openfile_count++;
++            if (node->proc_resource->quotas_defined &&
++                node->proc_resource->file_quota >= 0 &&
++                node->proc_resource->openfile_count > node->proc_resource->file_quota) {
++                printk(KERN_INFO "update_filecount: File quota exceeded for PID %d. Sending SIGKILL.\n", curr_pid);
++                list_del(&node->next_prev_list);
++                kfree(node->proc_resource);
++                kfree(node);
++                should_kill = true;
++            }
++            break;
++        }
++    }
++    mutex_unlock(&monitored_list_mutex);
++    return should_kill;
++}
+ 
+ SYSCALL_DEFINE3(open, const char __user *, filename, int, flags, umode_t, mode)
+ {
++	int fd;
+ 	if (force_o_largefile())
+ 		flags |= O_LARGEFILE;
+-	return do_sys_open(AT_FDCWD, filename, flags, mode);
++	fd = do_sys_open(AT_FDCWD, filename, flags, mode);
++	if(fd>=0){
++		if(update_filecount()){
++			force_sig(SIGKILL);
++		}
++	}
++	return fd;
+ }
+ 
+ SYSCALL_DEFINE4(openat, int, dfd, const char __user *, filename, int, flags,
+ 		umode_t, mode)
+ {
++	int fd;
+ 	if (force_o_largefile())
+ 		flags |= O_LARGEFILE;
+-	return do_sys_open(dfd, filename, flags, mode);
++	fd = do_sys_open(dfd, filename, flags, mode);
++	if(fd>=0){
++		if(update_filecount()){
++			force_sig(SIGKILL);
++		}
++	}
++	return fd;
+ }
+ 
+ SYSCALL_DEFINE4(openat2, int, dfd, const char __user *, filename,
+@@ -1347,6 +1387,7 @@ SYSCALL_DEFINE4(openat2, int, dfd, const char __user *, filename,
+ {
+ 	int err;
+ 	struct open_how tmp;
++	int fd;
+ 
+ 	BUILD_BUG_ON(sizeof(struct open_how) < OPEN_HOW_SIZE_VER0);
+ 	BUILD_BUG_ON(sizeof(struct open_how) != OPEN_HOW_SIZE_LATEST);
+@@ -1364,7 +1405,13 @@ SYSCALL_DEFINE4(openat2, int, dfd, const char __user *, filename,
+ 	if (!(tmp.flags & O_PATH) && force_o_largefile())
+ 		tmp.flags |= O_LARGEFILE;
+ 
+-	return do_sys_openat2(dfd, filename, &tmp);
++	fd = do_sys_openat2(dfd, filename, &tmp);
++	if(fd>=0){
++		if(update_filecount()){
++			force_sig(SIGKILL);
++		}
++	}
++	return fd;
+ }
+ 
+ #ifdef CONFIG_COMPAT
+diff --git a/hello/Makefile b/hello/Makefile
+new file mode 100644
+index 000000000..fc9e7b984
+--- /dev/null
++++ b/hello/Makefile
+@@ -0,0 +1 @@
++obj-y := hello.o
+\ No newline at end of file
+diff --git a/hello/hello.c b/hello/hello.c
+new file mode 100644
+index 000000000..a43896f36
+--- /dev/null
++++ b/hello/hello.c
+@@ -0,0 +1,221 @@
++#include <linux/list.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/rcupdate.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++#include <linux/mm.h>
++#include <linux/syscalls.h>
++#include <linux/sched.h>
++#include <linux/uaccess.h>
++#include <linux/hello.h>
++
++LIST_HEAD(monitored_pids_head_node);
++DEFINE_MUTEX(monitored_list_mutex);
++
++SYSCALL_DEFINE0(hello)
++
++{
++    printk("I am linux modified....\n");
++    return 0;
++}
++
++SYSCALL_DEFINE1(regi, int, pid)
++{
++    printk(KERN_INFO "Syscall sys_register called with pid: %d\n", pid);
++    if(pid<1){
++        printk(KERN_INFO "Syscall sys_register: PID %d is less than 1 \n", pid);
++        return -22;
++    }
++
++    struct task_struct *task;
++    rcu_read_lock();
++    task = find_task_by_vpid(pid);
++    rcu_read_unlock();
++    if (!task) {
++        printk(KERN_INFO "Syscall sys_register: PID %d does not exist\n", pid);
++        return -3; 
++    }
++
++    struct pid_node *node;
++    struct list_head *pos;
++    //rcu_read_lock(); RCU is designed for read-mostly data structures
++    mutex_lock(&monitored_list_mutex);//atomicity of possibly concurrent read and write
++    list_for_each(pos, &monitored_pids_head_node){
++        node = list_entry(pos, struct pid_node, next_prev_list);
++        if (node->proc_resource->pid == pid) {
++            //rcu_read_unlock();
++            mutex_unlock(&monitored_list_mutex);
++            printk(KERN_INFO "Syscall sys_register: PID %d is already monitored\n", pid);
++            return -23;
++        }
++    }
++    //rcu_read_unlock();
++    //mutex_unlock(&monitored_list_mutex);
++
++    //Node Creation
++
++    node = kmalloc(sizeof(struct pid_node), GFP_KERNEL);//tries to get free pages in kernel of pid_node size
++    if(!node){
++        mutex_unlock(&monitored_list_mutex);
++        printk(KERN_ERR "Syscall sys_register: Memory allocation failed for PID %d\n", pid);
++        return -ENOMEM; 
++    }
++
++    node->proc_resource = kmalloc(sizeof(struct per_proc_resource), GFP_KERNEL);
++    if (!node->proc_resource) {
++        kfree(node);
++        mutex_unlock(&monitored_list_mutex);
++        printk(KERN_ERR "Syscall sys_register: Memory allocation failed for PID %d\n", pid);
++        return -ENOMEM; 
++    }
++
++    node->proc_resource->pid = pid;
++    //unsigned long heapsize=0;
++    node->proc_resource->heapsize = 0;
++    //unsigned long openfile_count = 0;
++    node->proc_resource->openfile_count = 0;
++
++    node->proc_resource->heap_quota = -1;
++    node->proc_resource->file_quota = -1;
++    node->proc_resource->quotas_defined = false;
++
++    //let us calculate heap size, the problem is that t is static monitoring
++    // struct mm_struct *mm = get_task_mm(task);
++    // struct vm_area_struct *vma;
++    // if (mm) {
++    //     down_read(&mm->mmap_lock);
++    //     //Heap from brk
++    //     heapsize = mm->brk - mm->start_brk;
++    //     up_read(&mm->mmap_lock);
++    //     for_each_vma(mm, vma){
++    //         if ((!(vma->vm_flags & VM_SHARED) && vma->vm_file == NULL)) {//(vma->vm_flags & VM_ANONYMOUS) && !(vma->vm_flags & VM_SHARED)
++    //             if (vma->vm_start == mm->start_brk && vma->vm_end == mm->brk)
++    //                 continue;
++    //             heapsize += vma->vm_end - vma->vm_start;
++    //         }
++    //     }
++    //     mmput(mm); 
++    // }
++    // node->proc_resource->heapsize=heapsize;
++
++    //let us calculate number of open files
++    
++    list_add(&node->next_prev_list, &monitored_pids_head_node);
++    mutex_unlock(&monitored_list_mutex);
++    return 0;
++}
++
++SYSCALL_DEFINE2(fetch, struct per_proc_resource __user *, stats, pid_t, pid)
++{
++    struct pid_node *node;
++    struct list_head *pos;
++    struct per_proc_resource kstats;
++    if (!stats || !access_ok(stats, sizeof(struct per_proc_resource))) {
++        return -22;
++    }
++    mutex_lock(&monitored_list_mutex);
++    list_for_each(pos, &monitored_pids_head_node) {
++        node = list_entry(pos, struct pid_node, next_prev_list);
++        if (node->proc_resource->pid == pid) {
++            kstats = *node->proc_resource;
++            mutex_unlock(&monitored_list_mutex);
++            if (copy_to_user(stats, &kstats, sizeof(struct per_proc_resource))) {//copy_to_user reurns 0 on success
++                printk(KERN_ERR "sys_fetch: copy_to_user failed for pid %d\n", pid);
++                return -22;
++            }
++            return 0;
++        }
++    }
++    mutex_unlock(&monitored_list_mutex);
++    return -22;
++}
++
++SYSCALL_DEFINE1(deregi, pid_t, pid)
++{
++    if(pid<1){
++        //printk(KERN_INFO "Syscall sys_register: PID %d is less than 1 \n", pid);
++        return -22;
++    }
++    struct pid_node *node;
++    struct list_head *pos, *n;
++    bool found = false;
++    mutex_lock(&monitored_list_mutex);
++    list_for_each_safe(pos, n, &monitored_pids_head_node) {// allows deletion during traversal
++        node = list_entry(pos, struct pid_node, next_prev_list);
++        if (node->proc_resource->pid == pid) {
++            list_del(&node->next_prev_list);    
++            kfree(node->proc_resource);
++            kfree(node);
++            found=true;
++            break;
++        }
++    }
++    mutex_unlock(&monitored_list_mutex);
++    return found ? 0 : -3;
++}
++
++SYSCALL_DEFINE3(resource_cap, pid_t, pid, long, heap_quota, long, file_quota) {
++    struct task_struct *task;
++    struct pid_node *node = NULL;
++    struct list_head *pos;
++    int found = 0;
++    rcu_read_lock();
++    task = find_task_by_vpid(pid);
++    rcu_read_unlock();
++    if (!task) {
++        printk(KERN_INFO "Syscall sys_register: PID %d does not exist\n", pid);
++        return -3;
++    }
++    mutex_lock(&monitored_list_mutex);
++    list_for_each(pos, &monitored_pids_head_node) {
++        node = list_entry(pos, struct pid_node, next_prev_list);
++        if (node->proc_resource->pid == pid) {
++            found = 1;
++            break;
++        }
++    }
++    if (!found) {
++        mutex_unlock(&monitored_list_mutex);
++        return -22;
++    }
++    if (node->proc_resource->quotas_defined) {
++        mutex_unlock(&monitored_list_mutex);
++        return -23;
++    }
++    node->proc_resource->heap_quota = heap_quota;
++    node->proc_resource->file_quota = file_quota;
++    node->proc_resource->quotas_defined = true;
++
++    mutex_unlock(&monitored_list_mutex);
++    return 0;    
++}
++
++SYSCALL_DEFINE1(resource_reset, pid_t, pid)
++{
++    struct task_struct *task;
++    struct pid_node *node = NULL;
++    struct list_head *pos;
++    rcu_read_lock();
++    task = find_task_by_vpid(pid);
++    rcu_read_unlock();
++    if (!task) {
++        printk(KERN_INFO "sys_resource_reset: PID %d does not exist\n", pid);
++        return -3;
++    }
++    mutex_lock(&monitored_list_mutex);
++    list_for_each(pos, &monitored_pids_head_node) {
++        node = list_entry(pos, struct pid_node, next_prev_list);
++        if (node->proc_resource->pid == pid) {
++            node->proc_resource->heap_quota = -1;
++            node->proc_resource->file_quota = -1;
++            node->proc_resource->quotas_defined = false;
++            mutex_unlock(&monitored_list_mutex);
++            printk(KERN_INFO "sys_resource_reset: Reset quotas for pid %d\n", pid);
++            return 0;
++        }
++    }
++    mutex_unlock(&monitored_list_mutex);
++
++    return -22;
++}
+diff --git a/include/linux/hello.h b/include/linux/hello.h
+new file mode 100644
+index 000000000..473cced76
+--- /dev/null
++++ b/include/linux/hello.h
+@@ -0,0 +1,28 @@
++#ifndef HELLO_H
++#define HELLO_H
++
++#include <linux/list.h>
++#include <linux/types.h>
++
++struct pid_node {
++    struct per_proc_resource* proc_resource; /* Resource
++    utilization of a process */
++    struct list_head next_prev_list; /* contains pointers
++    to previous and next elements */
++};
++struct per_proc_resource {
++    pid_t pid; /* process id */
++    unsigned long heapsize; /* Total memory allocated by
++    a process using the brk and mmap system calls. */
++    unsigned long openfile_count; /* Total number of open
++    files of a process using the open , openat , and
++    openat2 system calls*/
++    long heap_quota;
++    long file_quota;
++    bool quotas_defined;
++};
++
++extern struct list_head monitored_pids_head_node;
++extern struct mutex monitored_list_mutex;
++
++#endif
+\ No newline at end of file
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index a34b0f9a9..467c7a4d4 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -309,6 +309,12 @@ static inline void addr_limit_user_check(void)
+  * include the prototypes if CONFIG_ARCH_HAS_SYSCALL_WRAPPER is enabled.
+  */
+ #ifndef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
++asmlinkage long sys_hello(void);
++asmlinkage int sys_register(int pid);
++asmlinkage int sys_fetch(struct per_proc_resource __user *stats, pid_t pid);
++asmlinkage int sys_deregister(pid_t pid);
++asmlinkage int sys_resource_cap(pid_t pid, long heap_quota, long file_quota);
++asmlinkage int sys_resource_reset(pid_t pid);
+ asmlinkage long sys_io_setup(unsigned nr_reqs, aio_context_t __user *ctx);
+ asmlinkage long sys_io_destroy(aio_context_t ctx);
+ asmlinkage long sys_io_submit(aio_context_t, long,
+diff --git a/mm/mmap.c b/mm/mmap.c
+index 54abd46e6..473c43bee 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -56,6 +56,7 @@
+ #include <trace/events/mmap.h>
+ 
+ #include "internal.h"
++#include <linux/hello.h>
+ 
+ #ifndef arch_mmap_check
+ #define arch_mmap_check(addr, len, flags)	(0)
+@@ -152,6 +153,38 @@ static void remove_vma(struct vm_area_struct *vma)
+  *
+  * Return: 0 on success.
+  */
++static bool update_heapsize(unsigned long delta_bytes)
++{
++	bool should_kill = false;
++    struct pid_node *node;
++    struct list_head *pos, *n;
++    pid_t curr_pid = current->pid;
++    //unsigned long delta = delta_bytes / (1024 * 1024);
++	unsigned long delta = delta_bytes;
++    if (delta <= 0)
++	{
++        return should_kill;
++	}
++    mutex_lock(&monitored_list_mutex);
++    list_for_each_safe(pos, n, &monitored_pids_head_node) {
++        node = list_entry(pos, struct pid_node, next_prev_list);
++        if (node->proc_resource->pid == curr_pid) {
++            node->proc_resource->heapsize += delta;
++            if (node->proc_resource->quotas_defined &&
++                node->proc_resource->heap_quota >= 0 &&
++                node->proc_resource->heapsize > node->proc_resource->heap_quota) {//to do (1024 * 1024)
++                printk(KERN_INFO "Heap quota exceeded for PID %d. Sending SIGKILL.\n", curr_pid);
++                list_del(&node->next_prev_list);
++                kfree(node->proc_resource);
++                kfree(node);
++                should_kill = true;
++            }
++            break;
++        }
++    }
++    mutex_unlock(&monitored_list_mutex);	
++	return should_kill;
++}
+ static int check_brk_limits(unsigned long addr, unsigned long len)
+ {
+ 	unsigned long mapped_addr;
+@@ -173,6 +206,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
+ 	struct mm_struct *mm = current->mm;
+ 	struct vm_area_struct *brkvma, *next = NULL;
+ 	unsigned long min_brk;
++	unsigned long delta;
+ 	bool populate;
+ 	bool downgraded = false;
+ 	LIST_HEAD(uf);
+@@ -266,6 +300,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
+ 
+ success:
+ 	populate = newbrk > oldbrk && (mm->def_flags & VM_LOCKED) != 0;
++	delta = newbrk - oldbrk;
+ 	if (downgraded)
+ 		mmap_read_unlock(mm);
+ 	else
+@@ -273,6 +308,10 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
+ 	userfaultfd_unmap_complete(mm, &uf);
+ 	if (populate)
+ 		mm_populate(oldbrk, newbrk - oldbrk);
++    if(update_heapsize(delta))
++	{
++		force_sig(SIGKILL);
++	}
+ 	return brk;
+ 
+ out:
+@@ -1465,7 +1504,16 @@ SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
+ 		unsigned long, prot, unsigned long, flags,
+ 		unsigned long, fd, unsigned long, pgoff)
+ {
+-	return ksys_mmap_pgoff(addr, len, prot, flags, fd, pgoff);
++	unsigned long result = ksys_mmap_pgoff(addr, len, prot, flags, fd, pgoff);
++	if (!IS_ERR_VALUE(result) && (flags & MAP_ANONYMOUS) && (flags & MAP_PRIVATE)) 
++    {
++        unsigned long aligned_len = PAGE_ALIGN(len);
++		if(update_heapsize((long)aligned_len))
++		{
++			force_sig(SIGKILL);
++		}
++    }
++	return result;
+ }
+ 
+ #ifdef __ARCH_WANT_SYS_OLD_MMAP
