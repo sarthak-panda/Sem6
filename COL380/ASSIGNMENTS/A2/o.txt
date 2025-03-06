@@ -1,0 +1,73 @@
+sarthak@radhekrishna :~ $ strace ./ab
+execve("./ab", ["./ab"], 0x7ffe6f7df3e0 /* 27 vars */) = 0
+brk (NULL)
+arch_prctl(0x3001 /* ARCH _??? */, 0x7fff6c352f00) = -1 EINVAL (Invalid argument)
+mmap(NULL, 8192, PROT_READ| PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) = 0x7f416f40d000
+access("/etc/ld.so.preload", R_OK)
+openat (AT_FDCWD, "/etc/ld.so.cache", O_RDONLY| O_CLOEXEC) = 3
+newfstatat (3,
+mmap(NULL, 22983, PROT_READ, MAP_PRIVATE, 3, 0) = 0x7f416f407000
+close(3)
+openat (AT_FDCWD, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY| O_CLOEXEC) = 3
+read(3,
+pread64(3,
+
+pread64(3, "\4\0\0\0\24\0\0\0\3\0\0\0GNU\0\315A\vq\17\17\tLh2\355\331Y1\om"
+", {st_mode=S_IFREG| 0755, st_size=2220400, ... }, AT_EMPTY_PATH) = 0
+784, 64) = 784
+mmap(NULL, 2264656, PROT_READ, MAP_PRIVATE| MAP_DENYWRITE, 3, 0) = 0x7f416f000000
+mprotect (0x7f416f028000, 2023424, PROT_NONE) = 0
+mmap(0x7f416f028000, 1658880, PROT_READ | PROT_EXEC, MAP_PRIVATE | MAP_FIXED|MAP_DENYWRITE, 3, 0x28000) = 0x7f416f028000
+mmap (0x7f416f1bd000, 360448, PROT_READ, MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 3, 0x1bd000) = 0x7f416f1bd000
+mmap (0x7f416f216000, 24576, PROT_READ| PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_DENYWRITE, 3, 0x215000) = 0x7f416f216000
+mmap (0x7f416f21c000, 52816, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_FIXED |MAP_ANONYMOUS, -1, 0) = 0x7f416f21c000
+close(3)
+mmap (NULL, 12288, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) = 0x7f416f404000
+arch_prctl(ARCH_SET_FS, 0x7f416f404740) = 0
+set_tid_address(0x7f416f404a10)
+set_robust_list (0x7f416f404a20, 24)
+rseq (0x7f416f4050e0, 0x20, 0, 0x53053053) = 0
+mprotect (0x7f416f216000, 16384, PROT_READ) = 0
+mprotect (0x559e7da6d000, 4096, PROT_READ) = 0
+mprotect (0x7f416f447000, 8192, PROT_READ) = 0
+prlimit64(0, RLIMIT_STACK, NULL, {rlim_cur=8192*1024, rlim_max=RLIM64_INFINITY} ) = 0
+munmap (0x7f416f407000, 22983)
+getrandom("\x35\x7e\x2d\x32\x55\xeb\x0c\x15", 8, GRND_NONBLOCK) = 8
+brk (NULL)
+brk (0x559e7f320000)
+mmap (NULL, 1052672, PROT_READ| PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0) = 0x7f416f303000
+newfstatat (1, "", {st_mode=S_IFCHR | 0600, st_rdev=makedev(0x4, 0x1), ... }, AT_EMPTY_PATH) = 0
+ioct1(1, TCGETS, {B38400 opost isig icanon echo ... }) = 0
+write(1, "Allocations successful\n", 23Allocations successful
+) = 23
+munmap (0x7f416f303000, 1052672)
+exit_group(0)
++++ exited with 0 +++
+
+= 0x559e7f2ff000
+
+= -1 ENOENT (No such file or directory)
+
+{st_mode=S_IFREG| 0644, st_size=22983, ... }, AT_EMPTY_PATH) = 0
+
+= 0
+
+., 832) = 832
+784, 64) = 784
+48, 848) = 48
+., 68, 896) = 68
+
+newfstatat (3,
+pread64(3,
+
+E 0
+
+= 1229
+
+= 0
+
+= 0x559e7f2ff000
+= 0x559e7f320000
+
+= 0
+= ?
