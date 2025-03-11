@@ -74,6 +74,7 @@ int main(int argc, char** argv) {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);  // Get rank of the process
     MPI_Comm_size(MPI_COMM_WORLD, &size);  // Get total number of processes
+    cout << "Rank_CHECKER: " << rank << " Size: " << size << endl;
     
     string foldername = argv[1];
     string output_file = argv[2];

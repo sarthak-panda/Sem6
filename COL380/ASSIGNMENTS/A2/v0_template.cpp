@@ -11,7 +11,7 @@ using namespace std;
 
 void init_mpi(int argc, char* argv[]) {
     //Code Here
-    MPI_Init(&argc, &argv);
+    MPI_Init(argc, &argv);
 }
 
 void end_mpi() {
@@ -25,7 +25,6 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);  // Get rank of the process
     MPI_Comm_size(MPI_COMM_WORLD, &size);  // Get total number of processes
     //code to generate the complete color map
-    cout<<"Rank: "<<rank<<" Size: "<<size<<endl;
     vector<int> local_buff;
     for(auto e: partial_vertex_color){
         local_buff.push_back(e.first);
@@ -52,6 +51,18 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
         int v = e.second;
         int color_u = vertex_color[u];
         int color_v = vertex_color[v];
+        // if(partial_color_vertex_map.find(color_u) == partial_color_vertex_map.end()){
+        //     partial_color_vertex_map[color_u] = map<int,int>();
+        // }
+        // if(partial_color_vertex_map.find(color_v) == partial_color_vertex_map.end()){
+        //     partial_color_vertex_map[color_v] = map<int,int>();
+        // }
+        // if(partial_color_vertex_map[color_u].find(v) == partial_color_vertex_map[color_u].end()){
+        //     partial_color_vertex_map[color_u][v] = 0;
+        // }
+        // if(partial_color_vertex_map[color_v].find(u) == partial_color_vertex_map[color_v].end()){
+        //     partial_color_vertex_map[color_v][u] = 0;
+        // }
         partial_color_vertex_map[color_u][v]++;
         partial_color_vertex_map[color_v][u]++;
     }
@@ -88,6 +99,9 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
             int color = global_results[i];
             int vertex = global_results[i+1];
             int partial_deg = global_results[i+2];
+            // if(color_vertex_map.find(color) == color_vertex_map.end()){
+            //     color_vertex_map[color] = map<int,int>();
+            // }
             color_vertex_map[color][vertex] += partial_deg;
         }
         set<int> colors;
