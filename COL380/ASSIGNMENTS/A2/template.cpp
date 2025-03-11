@@ -6,8 +6,39 @@
 #include <map>
 #include <set>
 #include <mpi.h>
+// #include <utility>
+// #include <functional>
 
 using namespace std;
+
+void my_sort(vector<pair<int,int>>& nodes, int mode, int k) {
+    auto comp = [](const pair<int,int>& a, const pair<int,int>& b) {
+        return (a.second == b.second) ? (a.first < b.first) : (a.second > b.second);
+    };
+    switch(mode) {
+        case 1:
+            sort(nodes.begin(), nodes.end(), comp);
+            break;
+        case 2:
+            if(nodes.size() > (size_t)k) {
+                nth_element(nodes.begin(), nodes.begin() + k, nodes.end(), comp);
+                sort(nodes.begin(), nodes.begin() + k, comp);
+            } else {
+                sort(nodes.begin(), nodes.end(), comp);
+            }
+            break;
+        case 3:
+            if(nodes.size() > (size_t)k) {
+                partial_sort(nodes.begin(), nodes.begin() + k, nodes.end(), comp);
+            } else {
+                sort(nodes.begin(), nodes.end(), comp);
+            }
+            break;
+        default:
+            sort(nodes.begin(), nodes.end(), comp);
+            break;
+    }
+}
 
 void init_mpi(int argc, char* argv[]) {
     //Code Here
@@ -42,8 +73,12 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
     vector<int> global_buff(displacements[size-1] + recv_counts[size-1]);
     MPI_Allgatherv(local_buff.data(),local_buff_size,MPI_INT,global_buff.data(),recv_counts.data(),displacements.data(),MPI_INT,MPI_COMM_WORLD);
     map<int,int> vertex_color;
+    set<int> colors;
     for(int i = 0; i < global_buff.size(); i+=2){
         vertex_color[global_buff[i]] = global_buff[i+1];
+        if(rank == 0){
+            colors.insert(global_buff[i+1]);
+        }
     }
     //work that each thread will do after getting the complete color map
     map<int,map<int,int>> partial_color_vertex_map;
@@ -58,8 +93,10 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
     vector<int> local_results;
     for(auto &e: partial_color_vertex_map){
         int color= e.first;
+        local_results.push_back(color);
+        int color_idenrifier = -9;
+        local_results.push_back(color_idenrifier);
         for(auto &v: e.second){
-            local_results.push_back(color);
             local_results.push_back(v.first);
             local_results.push_back(v.second);
         }
@@ -84,31 +121,53 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
     vector<vector<int>>output;
     if(rank == 0){
         map<int,map<int,int>> color_vertex_map;
-        for(int i = 0; i < global_results.size(); i+=3){
-            int color = global_results[i];
-            int vertex = global_results[i+1];
-            int partial_deg = global_results[i+2];
+        int color=-1;
+        for(int i = 0; i < global_results.size(); i+=2){
+            int vertex = global_results[i];
+            int partial_deg = global_results[i+1];
+            if(partial_deg == -9){
+                color = vertex;
+                continue;
+            }
             color_vertex_map[color][vertex] += partial_deg;
         }
-        set<int> colors;
-        for(auto e: color_vertex_map){
-            colors.insert(e.first);
-        }
+        // set<int> colors;
+        // for(auto e: color_vertex_map){
+        //     colors.insert(e.first);
+        // }
         for(auto color: colors){
-            vector<pair<int, int>> nodes;
-            for(auto &e: color_vertex_map[color]){
-                nodes.push_back({e.first, e.second});
-            }
-            sort(nodes.begin(),nodes.end(),[&](const pair<int,int>& a, const pair<int,int>& b){
-                if(a.second == b.second){
-                    return a.first < b.first;
-                }
-                return a.second > b.second;
-            });
             vector<int>top_k_nodes;
-            int limit = min(k,(int)nodes.size());
-            for(int i = 0; i < limit; i++){
-                top_k_nodes.push_back(nodes[i].first);
+            if(color_vertex_map.find(color) == color_vertex_map.end()){
+                //push top k nodes from 0 to k-1 consequetively assuming nodes labelled from 0 to n-1
+                for(int i = 0; i < k; i++){
+                    top_k_nodes.push_back(i);
+                }
+            }
+            else{
+                vector<pair<int, int>> nodes;
+                for(auto &e: color_vertex_map[color]){
+                    nodes.push_back({e.first, e.second});
+                }
+                // sort(nodes.begin(),nodes.end(),[&](const pair<int,int>& a, const pair<int,int>& b){
+                //     if(a.second == b.second){
+                //         return a.first < b.first;
+                //     }
+                //     return a.second > b.second;
+                // });
+                my_sort(nodes, 2, k);
+                int limit = min(k,(int)nodes.size());
+                set<int> top_k_nodes_set;
+                for(int i = 0; i < limit; i++){
+                    top_k_nodes.push_back(nodes[i].first);
+                    top_k_nodes_set.insert(nodes[i].first);
+                }
+                int n=0;
+                while(top_k_nodes.size() < k){
+                    if(top_k_nodes_set.find(n) == top_k_nodes_set.end()){
+                        top_k_nodes.push_back(n);
+                    }
+                    n++;
+                }
             }
             output.push_back(top_k_nodes);
         }
