@@ -42,9 +42,130 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
         return null;
     }
 
+    private void insertIntoLeaf(Node<T, Integer> leaf, T key, int rowId) {
+        int pos = 0;
+        while (pos < leaf.keys.size() && key.compareTo(leaf.keys.get(pos)) > 0) {
+            pos++;
+        }
+        leaf.keys.add(pos, key);
+        leaf.values.add(pos, rowId);
+    }
+
+    private Node<T, Integer> findParent(Node<T, Integer> current, Node<T, Integer> child) {
+        if (current.isLeaf) {
+            return null;
+        }
+        for (int i = 0; i < current.children.size(); i++) {
+            if (current.children.get(i) == child) {
+                return current;
+            }
+            Node<T, Integer> parent = findParent(current.children.get(i), child);
+            if (parent != null) {
+                return parent;
+            }
+        }
+        return null;
+    }
+
+    private void splitInternalNode(Node<T, Integer> node) {
+        int splitIndex = node.keys.size() / 2;
+        T promoteKey = node.keys.get(splitIndex);
+
+        List<T> leftKeys = new ArrayList<>(node.keys.subList(0, splitIndex));
+        List<T> rightKeys = new ArrayList<>(node.keys.subList(splitIndex + 1, node.keys.size()));
+
+        List<Node<T, Integer>> leftChildren = new ArrayList<>(node.children.subList(0, splitIndex + 1));
+        List<Node<T, Integer>> rightChildren = new ArrayList<>(node.children.subList(splitIndex + 1, node.children.size()));
+
+        Node<T, Integer> rightNode = new Node<>();
+        rightNode.isLeaf = false;
+        rightNode.keys = rightKeys;
+        rightNode.children = rightChildren;
+
+        node.keys = leftKeys;
+        node.children = leftChildren;
+
+        Node<T, Integer> parent = findParent(root, node);
+        if (parent == null) {
+            parent = new Node<>();
+            parent.isLeaf = false;
+            parent.keys = new ArrayList<>();
+            parent.children = new ArrayList<>();
+            parent.keys.add(promoteKey);
+            parent.children.add(node);
+            parent.children.add(rightNode);
+            root = parent;
+        } else {
+            int pos = 0;
+            while (pos < parent.keys.size() && promoteKey.compareTo(parent.keys.get(pos)) >= 0) {
+                pos++;
+            }
+            parent.keys.add(pos, promoteKey);
+            parent.children.add(pos + 1, rightNode);
+
+            if (parent.keys.size() > order - 1) {
+                splitInternalNode(parent);
+            }
+        }
+    }    
+
+    private void splitLeafNode(Node<T, Integer> leaf) {
+        int splitIndex = leaf.keys.size() / 2;
+        List<T> rightKeys = new ArrayList<>(leaf.keys.subList(splitIndex, leaf.keys.size()));
+        List<Integer> rightValues = new ArrayList<>(leaf.values.subList(splitIndex, leaf.values.size()));
+
+        Node<T, Integer> rightNode = new Node<>();
+        rightNode.isLeaf = true;
+        rightNode.keys = rightKeys;
+        rightNode.values = rightValues;
+        rightNode.next = leaf.next;
+        leaf.next = rightNode;
+
+        leaf.keys = new ArrayList<>(leaf.keys.subList(0, splitIndex));
+        leaf.values = new ArrayList<>(leaf.values.subList(0, splitIndex));
+
+        T promoteKey = rightKeys.get(0);
+        Node<T, Integer> parent = findParent(root, leaf);
+
+        if (parent == null) {
+            parent = new Node<>();
+            parent.isLeaf = false;
+            parent.keys = new ArrayList<>();
+            parent.children = new ArrayList<>();
+            parent.keys.add(promoteKey);
+            parent.children.add(leaf);
+            parent.children.add(rightNode);
+            root = parent;
+        } else {
+            int pos = 0;
+            while (pos < parent.keys.size() && promoteKey.compareTo(parent.keys.get(pos)) >= 0) {
+                pos++;
+            }
+            parent.keys.add(pos, promoteKey);
+            parent.children.add(pos + 1, rightNode);
+
+            if (parent.keys.size() > order - 1) {
+                splitInternalNode(parent);
+            }
+        }
+    }
+
+
     @Override
     public void insert(T key, int rowId) {
         //TODO: Implement me!
+        Node<T, Integer> current = root;
+        while (!current.isLeaf) {
+            int i = 0;
+            while (i < current.keys.size() && key.compareTo(current.keys.get(i)) > 0) {
+                i++;
+            }
+            current = current.getChild(i);
+        }
+        insertIntoLeaf(current, key, rowId);
+        if (current.keys.size() > order - 1) {
+            splitLeafNode(current);
+        }
     }
 
     @Override
