@@ -51,23 +51,7 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
         leaf.values.add(pos, rowId);
     }
 
-    private Node<T, Integer> findParent(Node<T, Integer> current, Node<T, Integer> child) {
-        if (current.isLeaf) {
-            return null;
-        }
-        for (int i = 0; i < current.children.size(); i++) {
-            if (current.children.get(i) == child) {
-                return current;
-            }
-            Node<T, Integer> parent = findParent(current.children.get(i), child);
-            if (parent != null) {
-                return parent;
-            }
-        }
-        return null;
-    }
-
-    private void splitInternalNode(Node<T, Integer> node) {
+    private void splitInternalNode(Node<T, Integer> node, List<Node<T, Integer>> insertionPath) {
         int splitIndex = node.keys.size() / 2;
         T promoteKey = node.keys.get(splitIndex);
 
@@ -85,8 +69,10 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
         node.keys = leftKeys;
         node.children = leftChildren;
 
-        Node<T, Integer> parent = findParent(root, node);
-        if (parent == null) {
+        insertionPath.remove(insertionPath.size() - 1);
+
+        Node<T, Integer> parent;
+        if (insertionPath.isEmpty()) {
             parent = new Node<>();
             parent.isLeaf = false;
             parent.keys = new ArrayList<>();
@@ -96,6 +82,7 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
             parent.children.add(rightNode);
             root = parent;
         } else {
+            parent = insertionPath.get(insertionPath.size() - 1);
             int pos = 0;
             while (pos < parent.keys.size() && promoteKey.compareTo(parent.keys.get(pos)) >= 0) {
                 pos++;
@@ -104,13 +91,13 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
             parent.children.add(pos + 1, rightNode);
 
             if (parent.keys.size() > order - 1) {
-                splitInternalNode(parent);
+                splitInternalNode(parent,insertionPath);
             }
         }
     }    
 
-    private void splitLeafNode(Node<T, Integer> leaf) {
-        int splitIndex = leaf.keys.size() / 2;
+    private void splitLeafNode(Node<T, Integer> leaf, List<Node<T, Integer>> insertionPath) {
+        int splitIndex = (leaf.keys.size() + 1) / 2; // Right-biased split
         List<T> rightKeys = new ArrayList<>(leaf.keys.subList(splitIndex, leaf.keys.size()));
         List<Integer> rightValues = new ArrayList<>(leaf.values.subList(splitIndex, leaf.values.size()));
 
@@ -125,7 +112,7 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
         leaf.values = new ArrayList<>(leaf.values.subList(0, splitIndex));
 
         T promoteKey = rightKeys.get(0);
-        Node<T, Integer> parent = findParent(root, leaf);
+        Node<T, Integer> parent = insertionPath.isEmpty() ? null : insertionPath.get(insertionPath.size() - 1);
 
         if (parent == null) {
             parent = new Node<>();
@@ -145,7 +132,7 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
             parent.children.add(pos + 1, rightNode);
 
             if (parent.keys.size() > order - 1) {
-                splitInternalNode(parent);
+                splitInternalNode(parent, insertionPath);
             }
         }
     }
@@ -155,7 +142,10 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
     public void insert(T key, int rowId) {
         //TODO: Implement me!
         Node<T, Integer> current = root;
+        List<Node<T, Integer>> path = new ArrayList<>();
+        path.clear();
         while (!current.isLeaf) {
+            path.add(current); // Record parent nodes
             int i = 0;
             while (i < current.keys.size() && key.compareTo(current.keys.get(i)) > 0) {
                 i++;
@@ -164,7 +154,7 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
         }
         insertIntoLeaf(current, key, rowId);
         if (current.keys.size() > order - 1) {
-            splitLeafNode(current);
+            splitLeafNode(current,path);
         }
     }
 

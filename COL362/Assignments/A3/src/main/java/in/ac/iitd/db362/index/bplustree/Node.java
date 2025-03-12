@@ -24,7 +24,7 @@ public class Node<K, V> {
      */
     Node<K,V> getChild(int offset) {
         logger.trace("Called getChild( " + offset + " )");
-        assert isLeaf = false;
+        assert isLeaf = false;//to check if the node is a leaf node
         return this.children.get(offset);
     }
 
