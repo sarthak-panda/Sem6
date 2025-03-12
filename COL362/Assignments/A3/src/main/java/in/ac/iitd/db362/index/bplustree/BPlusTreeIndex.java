@@ -97,7 +97,7 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
     }    
 
     private void splitLeafNode(Node<T, Integer> leaf, List<Node<T, Integer>> insertionPath) {
-        int splitIndex = (leaf.keys.size() + 1) / 2; // Right-biased split
+        int splitIndex = (leaf.keys.size()) / 2; // Right-biased split
         List<T> rightKeys = new ArrayList<>(leaf.keys.subList(splitIndex, leaf.keys.size()));
         List<Integer> rightValues = new ArrayList<>(leaf.values.subList(splitIndex, leaf.values.size()));
 
