@@ -1,0 +1,51 @@
+#include <vector>
+#include <map>
+#include <mpi.h>
+
+using namespace std;
+
+vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<int, int>& partial_vertex_color, int k) {
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    // Step 1: Serialize the map into a vector<int> (key1, val1, key2, val2, ...)
+    vector<int> local_buffer;
+    for (auto& [key, val] : partial_vertex_color) {
+        local_buffer.push_back(key);
+        local_buffer.push_back(val);
+    }
+    int local_size = local_buffer.size();
+
+    // Step 2: Gather all local sizes to compute displacements
+    vector<int> recv_counts(size);
+    MPI_Allgather(&local_size, 1, MPI_INT, recv_counts.data(), 1, MPI_INT, MPI_COMM_WORLD);<--To understand why they give recv_counts.data() and not pointer to recive buffer
+	<---ok .data() in vector gives pointer to where data actually starts , notte &recv_counts would give starting address to the vector object
+
+    // Compute displacements for Allgatherv
+    vector<int> displs(size, 0);
+    for (int i = 1; i < size; ++i)
+        displs[i] = displs[i-1] + recv_counts[i-1];
+
+    // Step 3: Gather all buffers into a global array
+    vector<int> global_buffer(displs.back() + recv_counts.back());
+    MPI_Allgatherv(local_buffer.data(), local_size, MPI_INT,
+                   global_buffer.data(), recv_counts.data(), displs.data(),
+                   MPI_INT, MPI_COMM_WORLD);
+
+    // Step 4: Deserialize into a combined map (if needed)
+    map<int, int> vertex_color;
+    for (size_t i = 0; i < global_buffer.size(); i += 2) {
+        int key = global_buffer[i];
+        int val = global_buffer[i+1];
+        vertex_color[key] = val; // Overlap handling depends on your application
+    }
+
+    // Rest of your code to process degree centrality...
+    vector<vector<int>> result;
+    // ... (compute result using partial_edge_list and vertex_color)
+    return result;
+}
+
+DOCUMENTATION:https://www.mpich.org/static/docs/v3.2/www3/MPI_Allgatherv.html
+DOCUMENTATION:https://www.mpich.org/static/docs/v3.2/www3/MPI_Allgather.html
