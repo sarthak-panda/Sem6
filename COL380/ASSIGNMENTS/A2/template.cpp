@@ -6,6 +6,7 @@
 #include <map>
 #include <set>
 #include <mpi.h>
+#include <unordered_set>
 // #include <utility>
 // #include <functional>
 
@@ -58,6 +59,7 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
     //code to generate the complete color map
     cout<<"Rank: "<<rank<<" Size: "<<size<<endl;
     vector<int> local_buff;
+    local_buff.reserve(partial_vertex_color.size() * 2);
     for(auto e: partial_vertex_color){
         local_buff.push_back(e.first);
         local_buff.push_back(e.second);
@@ -81,7 +83,7 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
         }
     }
     //work that each thread will do after getting the complete color map
-    map<int,map<int,int>> partial_color_vertex_map;
+    unordered_map<int,unordered_map<int,int>> partial_color_vertex_map;
     for(auto e: partial_edge_list){
         int u = e.first;
         int v = e.second;
@@ -90,7 +92,13 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
         partial_color_vertex_map[color_u][v]++;
         partial_color_vertex_map[color_v][u]++;
     }
+    size_t total_local_results = 0;
+    for (const auto &entry : partial_color_vertex_map) {
+        total_local_results += 2; // One for the color and one for the marker (-9)
+        total_local_results += entry.second.size() * 2; // Each neighbor adds two integers.
+    }
     vector<int> local_results;
+    local_results.reserve(total_local_results);
     for(auto &e: partial_color_vertex_map){
         int color= e.first;
         local_results.push_back(color);
@@ -120,7 +128,7 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
     MPI_Gatherv(local_results.data(),local_results_size,MPI_INT,global_results.data(),recv_counts_results.data(),displacements_results.data(),MPI_INT,0,MPI_COMM_WORLD);
     vector<vector<int>>output;
     if(rank == 0){
-        map<int,map<int,int>> color_vertex_map;
+        unordered_map<int,map<int,int>> color_vertex_map;
         int color=-1;
         for(int i = 0; i < global_results.size(); i+=2){
             int vertex = global_results[i];
@@ -137,6 +145,7 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
         // }
         for(auto color: colors){
             vector<int>top_k_nodes;
+            top_k_nodes.reserve(k);
             if(color_vertex_map.find(color) == color_vertex_map.end()){
                 //push top k nodes from 0 to k-1 consequetively assuming nodes labelled from 0 to n-1
                 for(int i = 0; i < k; i++){
@@ -145,6 +154,7 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
             }
             else{
                 vector<pair<int, int>> nodes;
+                nodes.reserve(color_vertex_map[color].size());
                 for(auto &e: color_vertex_map[color]){
                     nodes.push_back({e.first, e.second});
                 }
@@ -156,7 +166,7 @@ vector<vector<int>> degree_cen(vector<pair<int, int>>& partial_edge_list, map<in
                 // });
                 my_sort(nodes, 2, k);
                 int limit = min(k,(int)nodes.size());
-                set<int> top_k_nodes_set;
+                unordered_set<int> top_k_nodes_set;
                 for(int i = 0; i < limit; i++){
                     top_k_nodes.push_back(nodes[i].first);
                     top_k_nodes_set.insert(nodes[i].first);
