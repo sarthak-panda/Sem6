@@ -52,10 +52,71 @@ public class ExtendibleHashing<T> implements Index<T> {
         return null;
     }
 
+    private boolean tryInsert(Bucket<T> bucket, T key, int rowId) {
+        Bucket<T> current = bucket;
+        while (current != null) {
+            if (current.size < BUCKET_SIZE) {
+                current.keys[current.size] = key;
+                current.values[current.size] = rowId;
+                current.size++;
+                return true;
+            }
+            current = current.next;
+        }
+        return false;
+    }
+
     @Override
     public void insert(T key, int rowId) {
         // TODO: Implement insertion logic with bucket splitting and/or doubling the address table
-        
+        int directoryIndex = HashingScheme.getDirectoryIndex(key, globalDepth);
+        Bucket<T> bucket = directory[directoryIndex];
+        if (tryInsert(bucket, key, rowId)) {
+            return;
+        } else {
+            if (bucket.localDepth == globalDepth) {
+                globalDepth++;
+                int newDirectorySize = 1 << globalDepth;
+                Bucket<T>[] newDirectory = new Bucket[newDirectorySize];
+                for (int i = 0; i < newDirectorySize; i++) {
+                    newDirectory[i] = new Bucket<>(globalDepth);
+                }
+                for (int i = 0; i < directory.length; i++) {
+                    int newDirectoryIndex = i & ((1 << bucket.localDepth) - 1);
+                    newDirectory[newDirectoryIndex] = directory[i];
+                    newDirectory[newDirectoryIndex + (1 << bucket.localDepth)] = directory[i];
+                }
+                directory = newDirectory;
+            }
+            Bucket<T> newBucket = new Bucket<>(bucket.localDepth + 1);
+            Bucket<T> current = bucket;
+            while (current != null) {
+                for (int i = 0; i < current.size; i++) {
+                    int newDirectoryIndex = HashingScheme.getDirectoryIndex(current.keys[i], globalDepth);
+                    if (newDirectoryIndex == directoryIndex) {
+                        newBucket.keys[newBucket.size] = current.keys[i];
+                        newBucket.values[newBucket.size] = current.values[i];
+                        newBucket.size++;
+                    }
+                }
+                current = current.next;
+            }
+            current = bucket;
+            while (current != null) {
+                for (int i = 0; i < current.size; i++) {
+                    int newDirectoryIndex = HashingScheme.getDirectoryIndex(current.keys[i], globalDepth);
+                    if (newDirectoryIndex == directoryIndex) {
+                        current.keys[i] = null;
+                        current.values[i] = -1;
+                        current.size--;
+                    }
+                }
+                current = current.next;
+            }
+            newBucket.next = bucket.next;
+            bucket.next = newBucket;
+            insert(key, rowId);
+        }
     }
 
 
