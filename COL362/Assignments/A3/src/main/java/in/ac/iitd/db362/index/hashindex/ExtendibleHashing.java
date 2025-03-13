@@ -5,6 +5,7 @@ import in.ac.iitd.db362.parser.QueryNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -54,6 +55,7 @@ public class ExtendibleHashing<T> implements Index<T> {
     @Override
     public void insert(T key, int rowId) {
         // TODO: Implement insertion logic with bucket splitting and/or doubling the address table
+        
     }
 
 
@@ -67,7 +69,18 @@ public class ExtendibleHashing<T> implements Index<T> {
     @Override
     public List<Integer> search(T key) {
         // TODO: Implement search logic
-        return null;
+        int directoryIndex = HashingScheme.getDirectoryIndex(key, globalDepth);
+        List<Integer> results = new ArrayList<>();
+        Bucket<T> current = directory[directoryIndex];
+        while (current != null) {
+            for (int i = 0; i < current.size; i++) {
+                if (current.keys[i].equals(key)) {
+                    results.add(current.values[i]);
+                }
+            }
+            current = current.next;
+        }
+        return results;
     }
 
     /**
