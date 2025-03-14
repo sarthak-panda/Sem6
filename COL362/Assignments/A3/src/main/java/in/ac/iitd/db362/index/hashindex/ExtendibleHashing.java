@@ -77,14 +77,14 @@ public class ExtendibleHashing<T> implements Index<T> {
             if (bucket.localDepth == globalDepth) {
                 globalDepth++;
                 int newDirectorySize = 1 << globalDepth;
+                int oldSize = directory.length;
                 Bucket<T>[] newDirectory = new Bucket[newDirectorySize];
                 for (int i = 0; i < newDirectorySize; i++) {
                     newDirectory[i] = new Bucket<>(globalDepth);
                 }
-                for (int i = 0; i < directory.length; i++) {
-                    int newDirectoryIndex = i & ((1 << bucket.localDepth) - 1);
-                    newDirectory[newDirectoryIndex] = directory[i];
-                    newDirectory[newDirectoryIndex + (1 << bucket.localDepth)] = directory[i];
+                for (int i = 0; i < oldSize; i++) {
+                    newDirectory[i] = directory[i];
+                    newDirectory[i + oldSize] = directory[i];
                 }
                 directory = newDirectory;
             }
