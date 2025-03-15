@@ -88,8 +88,29 @@ public class ExtendibleHashing<T> implements Index<T> {
                 }
                 directory = newDirectory;
             }
+            bucket.localDepth++;
             Bucket<T> newBucket = new Bucket<>(bucket.localDepth + 1);
             Bucket<T> current = bucket;
+            // Determine which directory entries (pointing to bucketToSplit) should now point to the new bucket.
+            // The bit position to check is the new bit (at position localDepth-1).
+            int bitMask = 1 << (bucket.localDepth - 1);
+            for (int i = 0; i < directory.length; i++) {
+                if (directory[i] == bucket && ((i & bitMask) != 0)) {
+                    directory[i] = newBucket;
+                }
+            }
+            List<T> allKeys = new ArrayList<>();
+            List<Integer> allValues = new ArrayList<>();
+            // Save data from primary bucket and all overflow buckets in a single loop
+            Bucket<T> currentBucket = bucket;
+            while (currentBucket != null) {
+                for (int i = 0; i < currentBucket.size; i++) {
+                    allKeys.add(currentBucket.keys[i]);
+                    allValues.add(currentBucket.values[i]);
+                }
+                currentBucket = currentBucket.next;
+            }
+            
             while (current != null) {
                 for (int i = 0; i < current.size; i++) {
                     int newDirectoryIndex = HashingScheme.getDirectoryIndex(current.keys[i], globalDepth);
