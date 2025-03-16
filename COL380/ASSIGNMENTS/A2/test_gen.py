@@ -1,15 +1,20 @@
 import os
 import random
-import networkx as nx
-import matplotlib.pyplot as plt
+# import networkx as nx
+# import matplotlib.pyplot as plt
 
 # --------------------
 # Parameters (set these as needed)
 # --------------------
-graph_name = "example1N"          # Graph name used for folder naming
-total_vertices = 1000            # Total number of vertices in the graph
-total_edges = 1500               # Total number of undirected edges
-color_set = [0, 12, 52, 99, 4, 200, 999]       # Available colors for vertices (numeric)
+graph_name = "tough"          # Graph name used for folder naming
+total_vertices = 100000    # Total number of vertices in the graph
+total_edges = 20000000           # Total number of undirected edges
+color_set = [0, 12, 52, 99, 4, 200, 999, 86, 69, 34, 23, 123, 450, 789, 333, 
+502, 912, 689, 856, 569, 818, 8, 6, 607, 124, 227, 573, 429, 522, 
+980, 964, 1015, 765, 911, 723, 903, 163, 353, 454, 961, 369, 201, 
+529, 83, 913, 93, 610, 542, 98, 387, 547, 880, 1022, 778, 638, 75, 
+884, 287, 570, 365, 21, 501, 1005, 182, 785, 594, 452, 659, 714, 
+48, 244, 253, 860, 727, 543]  # Set of colors to choose from
 is_connected = False            # Ensure the graph is connected (spanning tree + extra edges)
 num_files = 40                  # Number of files to generate
 
@@ -100,33 +105,33 @@ print(f"Graph files generated in folder: {folder_name}")
 # Nodes are drawn with their numbers and colored based on the vertex color mapping.
 # --------------------
 # Create the overall graph
-G = nx.Graph()
-G.add_nodes_from(range(total_vertices))
-G.add_edges_from(edges)
+# G = nx.Graph()
+# G.add_nodes_from(range(total_vertices))
+# G.add_edges_from(edges)
 
-# Create a dictionary for vertex colors
-vertex_color_dict = {v: color for v, color in vertex_colors}
+# # Create a dictionary for vertex colors
+# vertex_color_dict = {v: color for v, color in vertex_colors}
 
 # Map numeric colors to actual color names for visualization.
 # (You can adjust the mapping as needed.)
-default_color_mapping = {
-    0: "red", 
-    1: "blue", 
-    2: "green", 
-    3: "orange", 
-    4: "purple"
-}
-node_colors = [default_color_mapping.get(vertex_color_dict[v], "gray") for v in G.nodes()]
+# default_color_mapping = {
+#     0: "red", 
+#     1: "blue", 
+#     2: "green", 
+#     3: "orange", 
+#     4: "purple"
+# }
+# node_colors = [default_color_mapping.get(vertex_color_dict[v], "gray") for v in G.nodes()]
 
 # Use a spring layout for visualization (with fixed seed for consistency).
-pos = nx.spring_layout(G, seed=42)
+# pos = nx.spring_layout(G, seed=42)
 
-plt.figure(figsize=(8, 8))
-nx.draw(G, pos, labels={v: str(v) for v in G.nodes()}, node_color=node_colors, 
-        with_labels=True, edge_color='black', font_size=8, node_size=300)
-plt.title("Overall Graph")
-plt.tight_layout()
-plt.savefig("pic.jpg")
-plt.close()
+# plt.figure(figsize=(8, 8))
+# nx.draw(G, pos, labels={v: str(v) for v in G.nodes()}, node_color=node_colors, 
+#         with_labels=True, edge_color='black', font_size=8, node_size=300)
+# plt.title("Overall Graph")
+# plt.tight_layout()
+# plt.savefig("pic.jpg")
+# plt.close()
 
 print("Graph image saved as pic.jpg")
