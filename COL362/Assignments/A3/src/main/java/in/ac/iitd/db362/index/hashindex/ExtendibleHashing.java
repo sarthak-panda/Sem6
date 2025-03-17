@@ -5,6 +5,7 @@ import in.ac.iitd.db362.parser.QueryNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -66,10 +67,23 @@ public class ExtendibleHashing<T> implements Index<T> {
         return false;
     }
 
+    private int getDirectoryIndexForKey(T key, int globalDepth) {
+    if (key instanceof Integer) {
+        return HashingScheme.getDirectoryIndex((Integer) key, globalDepth);
+    } else if (key instanceof Double) {
+        return HashingScheme.getDirectoryIndex((Double) key, globalDepth);
+    } else if (key instanceof String) {
+        return HashingScheme.getDirectoryIndex((String) key, globalDepth);
+    } else if (key instanceof LocalDate) {
+        return HashingScheme.getDirectoryIndex((LocalDate) key, globalDepth);
+    } else {
+        throw new IllegalArgumentException("Unsupported key type: " + key.getClass());
+    }
+}
+
     @Override
     public void insert(T key, int rowId) {
-        // TODO: Implement insertion logic with bucket splitting and/or doubling the address table
-        int directoryIndex = HashingScheme.getDirectoryIndex(key, globalDepth);
+        int directoryIndex = getDirectoryIndexForKey(key, globalDepth);
         Bucket<T> bucket = directory[directoryIndex];
         if (tryInsert(bucket, key, rowId)) {
             return;
@@ -78,44 +92,96 @@ public class ExtendibleHashing<T> implements Index<T> {
                 globalDepth++;
                 int newDirectorySize = 1 << globalDepth;
                 int oldSize = directory.length;
-                Bucket<T>[] newDirectory = new Bucket[newDirectorySize];
-                for (int i = 0; i < newDirectorySize; i++) {
-                    newDirectory[i] = new Bucket<>(globalDepth);
-                }
+                Bucket<T>[] newDirectory = (Bucket<T>[]) new Bucket[newDirectorySize];
                 for (int i = 0; i < oldSize; i++) {
                     newDirectory[i] = directory[i];
                     newDirectory[i + oldSize] = directory[i];
                 }
                 directory = newDirectory;
             }
-            Bucket<T> newBucket = new Bucket<>(bucket.localDepth + 1);
-            Bucket<T> current = bucket;
-            while (current != null) {
-                for (int i = 0; i < current.size; i++) {
-                    int newDirectoryIndex = HashingScheme.getDirectoryIndex(current.keys[i], globalDepth);
-                    if (newDirectoryIndex == directoryIndex) {
-                        newBucket.keys[newBucket.size] = current.keys[i];
-                        newBucket.values[newBucket.size] = current.values[i];
-                        newBucket.size++;
+            bucket.localDepth++;
+            Bucket<T> newBucket = new Bucket<>(bucket.localDepth);
+            // Determine which directory entries (pointing to bucketToSplit) should now point to the new bucket.
+            // The bit position to check is the new bit (at position localDepth-1).
+            int bitMask = 1 << (bucket.localDepth - 1);
+            for (int i = 0; i < directory.length; i++) {
+                if (directory[i] == bucket && ((i & bitMask) != 0)) {
+                    directory[i] = newBucket;
+                }
+            }
+            List<T> allKeys = new ArrayList<>();
+            List<Integer> allValues = new ArrayList<>();
+            // Save data from primary bucket and all overflow buckets in a single loop
+            Bucket<T> currentBucket = bucket;
+            while (currentBucket != null) {
+                for (int i = 0; i < currentBucket.size; i++) {
+                    allKeys.add(currentBucket.keys[i]);
+                    allValues.add(currentBucket.values[i]);
+                }
+                currentBucket = currentBucket.next;
+            }
+            int oldBucketCount =0;
+            int newBucketCount = 0;
+            for (int i = 0; i < allKeys.size(); i++) {
+                T currentKey = allKeys.get(i);
+                int currentKeyIndex = getDirectoryIndexForKey(currentKey, globalDepth);
+                if (directory[currentKeyIndex] == bucket) {
+                    oldBucketCount++;
+                }
+                else {//i.e. if (directory[currentKeyIndex] == newBucket)
+                    newBucketCount++;
+                }
+            }
+            if(oldBucketCount == allKeys.size() || newBucketCount == allKeys.size()){
+                //no meaning to split we will add overflow bucket and insert later into that
+                //first let us undo the directory mapping
+                for (int i = 0; i < directory.length; i++) {
+                    if (directory[i] == bucket) {
+                        directory[i] = newBucket;//we are planning to add overflow bucket at head of list
                     }
                 }
-                current = current.next;
+                bucket.localDepth--;
+                newBucket.localDepth--;
+                newBucket.next = bucket;    //add overflow bucket at head of list
+                return;
             }
-            current = bucket;
-            while (current != null) {
-                for (int i = 0; i < current.size; i++) {
-                    int newDirectoryIndex = HashingScheme.getDirectoryIndex(current.keys[i], globalDepth);
-                    if (newDirectoryIndex == directoryIndex) {
-                        current.keys[i] = null;
-                        current.values[i] = -1;
-                        current.size--;
+            //doing a split is meaningful so we will redistribute the keys
+            //let us first clear the old bucket and remove the overflow chains from it
+            //we empty there keys and values array in each bucket
+            bucket.size = 0;
+            bucket.keys = (T[]) new Object[ExtendibleHashing.BUCKET_SIZE];
+            bucket.values = new int[ExtendibleHashing.BUCKET_SIZE];
+            bucket.next = null;//break the old overflow chain
+            //now we will redistribute the keys
+            for (int i = 0; i < allKeys.size(); i++) {
+                T currentKey = allKeys.get(i);
+                int currentRowId = allValues.get(i);
+                int currentKeyIndex = getDirectoryIndexForKey(currentKey, globalDepth);
+                Bucket<T> targetBucket = directory[currentKeyIndex];
+                //we have to careflly add the overflow bucket in the new bucket/old bucket if needed
+                Bucket<T> temp = targetBucket;
+                while (temp != null) {
+                    if (temp.size < BUCKET_SIZE) {
+                        temp.keys[temp.size] = currentKey;
+                        temp.values[temp.size] = currentRowId;
+                        temp.size++;
+                        break;
                     }
+                    if(temp.next == null){
+                        temp.next=new Bucket<>(targetBucket.localDepth);
+                    }
+                    temp = temp.next;
                 }
-                current = current.next;
             }
-            newBucket.next = bucket.next;
-            bucket.next = newBucket;
-            insert(key, rowId);
+            //insert(key, rowId);
+            int directoryIndexF = getDirectoryIndexForKey(key, globalDepth);
+            Bucket<T> bucketF = directory[directoryIndexF];
+            if (tryInsert(bucketF, key, rowId)) {
+                return;
+            }
+            else {
+                throw new RuntimeException("Failed to insert key after split/double");
+            }
         }
     }
 
@@ -130,7 +196,7 @@ public class ExtendibleHashing<T> implements Index<T> {
     @Override
     public List<Integer> search(T key) {
         // TODO: Implement search logic
-        int directoryIndex = HashingScheme.getDirectoryIndex(key, globalDepth);
+        int directoryIndex = getDirectoryIndexForKey(key, globalDepth);
         List<Integer> results = new ArrayList<>();
         Bucket<T> current = directory[directoryIndex];
         while (current != null) {
