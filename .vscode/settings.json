@@ -395,6 +395,11 @@
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\20.pdf\\",
 			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\ASSIGNMENTS\\A2\\",
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
 		}
 	],
 	"files.associations": {
