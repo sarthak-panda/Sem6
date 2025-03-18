@@ -4,7 +4,7 @@ import in.ac.iitd.db362.parser.QueryNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,8 +77,22 @@ public class BitmapIndex<T> implements Index<T> {
 
     @Override
     public List<Integer> search(T key) {
-    //TODO: Implement me!
-        return null;
+        List<Integer> result = new ArrayList<>();
+        int[] bitmap = bitmaps.get(key);
+        if (bitmap == null) {
+            return result;
+        }
+        for (int i = 0; i < bitmap.length; i++) {
+            int bits = bitmap[i];
+            for (int bitPos = 0; bitPos < 32; bitPos++) {
+                int rowId = i * 32 + bitPos;
+                if (rowId >= maxRowId) break;
+                if ((bits & (1 << bitPos)) != 0) {
+                    result.add(rowId);
+                }
+            }
+        }
+        return result;
     }
 
     @Override
