@@ -86,7 +86,7 @@ public class BitmapIndex<T> implements Index<T> {
             int bits = bitmap[i];
             for (int bitPos = 0; bitPos < 32; bitPos++) {
                 int rowId = i * 32 + bitPos;
-                if (rowId >= maxRowId) break;
+                if (rowId > maxRowId) break;
                 if ((bits & (1 << bitPos)) != 0) {
                     result.add(rowId);
                 }
