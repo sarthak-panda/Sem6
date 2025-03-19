@@ -1,12 +1,14 @@
 package in.ac.iitd.db362.index.hashindex;
 
 import in.ac.iitd.db362.index.Index;
+import in.ac.iitd.db362.parser.Operator;
 import in.ac.iitd.db362.parser.QueryNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -45,12 +47,46 @@ public class ExtendibleHashing<T> implements Index<T> {
         this.attribute = attribute;
     }
 
+    @SuppressWarnings("unchecked")
+    private T parseKey(String value) {
+        // Try parsing as Integer
+        try {
+            Integer intValue = Integer.parseInt(value);
+            return (T) intValue;
+        } catch (NumberFormatException e) {
+            // Proceed to next type
+        }
+
+        // Try parsing as Double
+        try {
+            Double doubleValue = Double.parseDouble(value);
+            return (T) doubleValue;
+        } catch (NumberFormatException e) {
+            // Proceed to next type
+        }
+
+        // Try parsing as LocalDate (ISO format: yyyy-MM-dd)
+        try {
+            LocalDate dateValue = LocalDate.parse(value);
+            return (T) dateValue;
+        } catch (Exception e) {
+            // Proceed to next type
+        }
+
+        // Return as String if all else fails
+        return (T) value;
+    }
 
     @Override
     public List<Integer> evaluate(QueryNode node) {
         logger.info("Evaluating predicate using Hash index on attribute " + attribute + " for operator " + node.operator);
-        // TODO: Implement me!
-        return null;
+
+        if (node.operator != Operator.EQUALS) {
+            logger.error("Hash index only supports equality queries");
+            return Collections.emptyList();
+        }
+        T key = parseKey(node.value);
+        return search(key);
     }
 
     private boolean tryInsert(Bucket<T> bucket, T key, int rowId) {

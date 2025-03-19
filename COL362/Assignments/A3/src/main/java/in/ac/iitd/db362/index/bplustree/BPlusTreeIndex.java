@@ -1,11 +1,14 @@
 package in.ac.iitd.db362.index.bplustree;
 
 import in.ac.iitd.db362.index.Index;
+import in.ac.iitd.db362.parser.Operator;
 import in.ac.iitd.db362.parser.QueryNode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -35,11 +38,54 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
         this.root.isLeaf = true;
     }
 
+    @SuppressWarnings("unchecked")
+    private T parseKey(String value) {
+        // Try parsing as Integer
+        try {
+            Integer intValue = Integer.parseInt(value);
+            return (T) intValue;
+        } catch (NumberFormatException e) {
+            // Proceed to next type
+        }
+
+        // Try parsing as Double
+        try {
+            Double doubleValue = Double.parseDouble(value);
+            return (T) doubleValue;
+        } catch (NumberFormatException e) {
+            // Proceed to next type
+        }
+
+        // Try parsing as LocalDate (ISO format: yyyy-MM-dd)
+        try {
+            LocalDate dateValue = LocalDate.parse(value);
+            return (T) dateValue;
+        } catch (Exception e) {
+            // Proceed to next type
+        }
+
+        // Return as String if all else fails
+        return (T) value;
+    }    
+
     @Override
     public List<Integer> evaluate(QueryNode node) {
         logger.info("Evaluating predicate using B+ Tree index on attribute " + attribute + " for operator " + node.operator);
-        //TODO: Implement me!
-        return null;
+        if (node.operator == Operator.EQUALS) {
+            T key = parseKey(node.value);
+            return search(key);
+        } else if(node.operator == Operator.RANGE){
+            T startKey=parseKey(node.value);
+            T endKey=parseKey(node.secondValue);
+            return rangeQuery(startKey, false, endKey, false);//to check inclusiveness
+        } else if(node.operator == Operator.LT){
+            T key = parseKey(node.value);
+            return rangeQuery(null, false, key, false);//to fix rangeQuery to handle null
+        } else if(node.operator == Operator.GT){
+            T key = parseKey(node.value);
+            return rangeQuery(key, false, null, false);//to fix rangeQuery to handle null
+        }
+        return Collections.emptyList();
     }
 
     private void insertIntoLeaf(Node<T, Integer> leaf, T key, int rowId) {
@@ -208,24 +254,35 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
      * @return all rowIds that satisfy the range predicate
      */
     List<Integer> rangeQuery(T startKey, boolean startInclusive, T endKey, boolean endInclusive) {
-        //TODO: Implement me!
         //Note: When searching, use Node's getChild() and getNext() methods. Some test cases may fail otherwise!
         List<Integer> result = new ArrayList<>();
         if (root == null || root.keys.isEmpty()) return result;
         Node<T, Integer> current = root;
-        while (!current.isLeaf) {
-            int i = 0;
-            while (i < current.keys.size() && startKey.compareTo(current.keys.get(i)) > 0) {
-                i++;
+        if (startKey != null) {
+            while (!current.isLeaf) {
+                int i = 0;
+                while (i < current.keys.size() && startKey.compareTo(current.keys.get(i)) > 0) {
+                    i++;
+                }
+                current = current.children.get(i);
             }
-            current = current.children.get(i);
+        } else {
+            while (!current.isLeaf) {
+                current = current.children.get(0);
+            }
         }
         boolean done = false;
         while (current != null && !done) {
             for (int i = 0; i < current.keys.size(); i++) {
                 T currentKey = current.keys.get(i);
                 boolean meetsStartCondition = startInclusive ? (currentKey.compareTo(startKey) >= 0) : (currentKey.compareTo(startKey) > 0);
+                if(startKey==null){
+                    meetsStartCondition=true;
+                }
                 boolean meetsEndCondition = endInclusive ? (currentKey.compareTo(endKey) <= 0) : (currentKey.compareTo(endKey) < 0);
+                if(endKey==null){
+                    meetsEndCondition=true;
+                }
                 if (meetsStartCondition && meetsEndCondition) {
                     result.add(current.values.get(i));
                 } else if (!meetsEndCondition) {
@@ -243,7 +300,6 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
      * @return all Keys
      */
     public List<T> getAllKeys() {
-        // TODO: Implement me!
         List<T> keys = new ArrayList<>();
         if (root == null || root.keys.isEmpty()) return keys;
         Node<T, Integer> current = root;
@@ -262,7 +318,6 @@ public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
      * @return Height of the b+ tree
      */
     public int getHeight() {
-        // TODO: Implement me!
         int height = 0;
         Node<T, Integer> current = root;
         while (!current.isLeaf){
