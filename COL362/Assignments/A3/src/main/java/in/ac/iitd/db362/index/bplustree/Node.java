@@ -24,7 +24,7 @@ public class Node<K, V> {
      */
     Node<K,V> getChild(int offset) {
         logger.trace("Called getChild( " + offset + " )");
-        assert isLeaf = false;//to check if the node is a leaf node
+        assert !isLeaf;
         return this.children.get(offset);
     }
 
@@ -34,8 +34,8 @@ public class Node<K, V> {
      */
     Node<K,V> getNext() {
         logger.trace("Called getNext()");
-        logger.trace("Last <K,V>: " + "<" + (K)this.keys.get(keys.size()-1) + "," + (V)this.values.get(keys.size()) + ">");
-        assert isLeaf = true;
+        logger.trace("Last <K,V>: " + "<" + (K)this.keys.get(keys.size()-1) + "," + (V)this.values.get(keys.size()-1) + ">");
+        assert isLeaf;
         return this.next;
     }
 }

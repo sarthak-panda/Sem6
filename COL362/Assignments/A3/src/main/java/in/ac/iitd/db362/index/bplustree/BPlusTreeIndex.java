@@ -15,7 +15,7 @@ import java.util.List;
  * Starter code for BPlusTree Implementation
  * @param <T> The type of the key.
  */
-public class BPlusTreeIndex<T extends Comparable<T>> implements Index<T> {
+public class BPlusTreeIndex<T> implements Index<T> {
 
     protected static final Logger logger = LogManager.getLogger();
 
