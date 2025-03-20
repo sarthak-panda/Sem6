@@ -179,14 +179,15 @@ public class ExtendibleHashing<T> implements Index<T> {
                 bucket.localDepth--;
                 newBucket.localDepth--;
                 newBucket.next = bucket;    //add overflow bucket at head of list
+                insert(key, rowId); 
                 return;
             }
             //doing a split is meaningful so we will redistribute the keys
             //let us first clear the old bucket and remove the overflow chains from it
             //we empty there keys and values array in each bucket
             bucket.size = 0;
-            bucket.keys = (T[]) new Object[ExtendibleHashing.BUCKET_SIZE];
-            bucket.values = new int[ExtendibleHashing.BUCKET_SIZE];
+            bucket.keys = (T[]) new Object[BUCKET_SIZE];
+            bucket.values = new int[BUCKET_SIZE];
             bucket.next = null;//break the old overflow chain
             //now we will redistribute the keys
             for (int i = 0; i < allKeys.size(); i++) {
@@ -209,15 +210,15 @@ public class ExtendibleHashing<T> implements Index<T> {
                     temp = temp.next;
                 }
             }
-            //insert(key, rowId);
-            int directoryIndexF = getDirectoryIndexForKey(key, globalDepth);
-            Bucket<T> bucketF = directory[directoryIndexF];
-            if (tryInsert(bucketF, key, rowId)) {
-                return;
-            }
-            else {
-                throw new RuntimeException("Failed to insert key after split/double");
-            }
+            insert(key, rowId);
+            // int directoryIndexF = getDirectoryIndexForKey(key, globalDepth);
+            // Bucket<T> bucketF = directory[directoryIndexF];
+            // if (tryInsert(bucketF, key, rowId)) {
+            //     return;
+            // }
+            // else {
+            //     throw new RuntimeException("Failed to insert key after split/double");
+            // }
         }
     }
 
