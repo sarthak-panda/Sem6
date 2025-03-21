@@ -4,7 +4,9 @@
 
 using namespace std;
 
-
+__global__ void MyKernelFunc(){
+	
+}
 
 vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector<int>& range){
 	//let us start with naive approach
