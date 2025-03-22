@@ -5,6 +5,18 @@
 using namespace std;
 
 __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, int numMatrices){
+	int k = blockIdx.x;
+    if (k >= numMatrices) return;
+	int maxV = d_range[k];
+    int rows = d_rows[k];
+    int cols = d_cols[k];
+    int totalElements = rows * cols;
+	int offset = 0;
+    for (int m = 0; m < k; m++) {
+        offset += d_rows[m] * d_cols[m];
+    }
+	
+
 	int k=threadIdx.x;
 	vector<vector<int>>mat=matrices[k];
 	int maxV=range[k];
