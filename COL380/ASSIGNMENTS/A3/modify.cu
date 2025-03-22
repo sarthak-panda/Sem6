@@ -4,7 +4,7 @@
 
 using namespace std;
 
-__global__ void MyKernelFunc(vector<vector<vector<int>>>& matrices, vector<int>& range){
+__global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, int numMatrices){
 	int k=threadIdx.x;
 	vector<vector<int>>mat=matrices[k];
 	int maxV=range[k];
@@ -30,13 +30,62 @@ __global__ void MyKernelFunc(vector<vector<vector<int>>>& matrices, vector<int>&
 }
 
 vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector<int>& range){
-	/*let us prefetceh the matrices,range to GPU to lower the bottle-neck of GPU-CPU conversatiomn
-	i think i should use i either use cudaMemPrefetchAsync(left, size*sizeof(float), device, NULL);[just wrote signature] 
-	or cudaMemcpyAsync(dev_pointer, host_pointer, size, cudaMemcpyHostToDevice, stream);[just wrote signature]
-	or something else that fits well, i may need to update the way variable are passes to kernel depending on what i do*/
-	int numBlocks=1;
-	int numThreads=1;//i think i should len(matrices) because i am thinking threadIdx.x will how come take on all possible values to process entire matrices array in parallel
-	MyKernelFunc<<<numBlocks,numThreads>>>(matrices,range);
+	int numMatrices = matrices.size();
+	// First, flatten matrices into a single contiguous array.
+	int totalElements = 0;
+    vector<int> rows(numMatrices), cols(numMatrices);
+    for (int i = 0; i < numMatrices; i++) {
+        int r = matrices[i].size();
+        int c = matrices[i][0].size();
+        rows[i] = r;
+        cols[i] = c;
+        totalElements += r * c;
+    }
+
+	int* input = new int[totalElements];
+    int pos = 0;
+    for (int k = 0; k < numMatrices; k++) {
+        for (int i = 0; i < rows[k]; i++) {
+            for (int j = 0; j < cols[k]; j++) {
+                input[pos++] = matrices[k][i][j];
+            }
+        }
+    }
+
+	int *device_input, *device_range, *device_rows, *device_cols;
+	cudaMalloc(&device_input, totalElements * sizeof(int));
+    cudaMalloc(&device_range, numMatrices * sizeof(int));
+    cudaMalloc(&device_rows, numMatrices * sizeof(int));
+    cudaMalloc(&device_cols, numMatrices * sizeof(int));
+
+	cudaMemcpy(device_input, input, numMatrices * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(device_range, range.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_rows, rows.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_cols, cols.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
+
+	int threadsPerBlock = 256;
+    int numBlocks = numMatrices;
+	MyKernelFunc<<<numBlocks, threadsPerBlock>>>(device_input, device_range, device_rows, device_cols, numMatrices);
 	cudaDeviceSynchronize();
+
+	cudaMemcpy(input, device_input, totalElements * sizeof(int), cudaMemcpyDeviceToHost);
+	pos = 0;
+    for (int k = 0; k < numMatrices; k++) {
+        int r = rows[k];
+        int c = cols[k];
+        for (int i = 0; i < r; i++) {
+            for (int j = 0; j < c; j++) {
+                matrices[k][i][j] = input[pos++];
+            }
+        }
+    }
+
+	cudaFree(device_input);
+    cudaFree(device_range);
+    cudaFree(device_rows);
+    cudaFree(device_cols);
+    delete[] input;
+    delete[] output;
+
 	return matrices;
 }
