@@ -1,7 +1,6 @@
 #include <vector>
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
-
 using namespace std;
 
 __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, int numMatrices){
@@ -15,29 +14,32 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
     for (int m = 0; m < k; m++) {
         offset += d_rows[m] * d_cols[m];
     }
-	
-
-	int k=threadIdx.x;
-	vector<vector<int>>mat=matrices[k];
-	int maxV=range[k];
-	vector<int>freqArray(maxV+1,0);
-	vector<int>prefixSumArray(maxV+1,0);
-	for(int i=0;i<row;i++){
-		for(int j=0;j<col;j++){
-			freqArray[mat[i][j]]++;
-		}
-	}
-	/*updated prefixSumArray Method so if at index i ,
-	freqArray[i]!=0 then the output matrix starts the value i 
-	from row major index prefixSumArray[i] and continues till 
-	it hits another non zero frequency array element*/
+	extern __shared__ int shared[];
+    int* freqArray = shared;
+    int* prefixSumArray = &shared[maxV + 1]; 
+	int* matrix = d_input+offset;
+	for (int i = 0; i <= maxV; ++i) {
+        freqArray[i] = 0;
+    }
+    for (int i = 0; i < totalElements; ++i) {
+        int val = matrix[i];
+        if (val <= maxV) {
+            freqArray[val]++;
+        }
+    }
 	prefixSumArray[0] = 0;
-	for (int i = 1; i <= maxV; i++) {
-		prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i-1];
-	}
-	//to use prefixSumArray and freqArray efficiently using CUDA programming
-	//write the updated matxrix to mat
-	matrices[k]=mat;
+    for (int i = 1; i <= maxV; ++i) {
+        prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i - 1];
+    }
+	for (int val = 0; val <= maxV; ++val) {
+        int count = freqArray[val];
+        int start = prefixSumArray[val];
+        for (int c = 0; c < count; ++c) {
+            int pos = start + c;
+            if (pos >= totalElements) break;
+            matrix[pos] = val;
+        }
+    }
 	return;
 }
 
@@ -77,7 +79,12 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
 
 	int threadsPerBlock = 256;
     int numBlocks = numMatrices;
-	MyKernelFunc<<<numBlocks, threadsPerBlock>>>(device_input, device_range, device_rows, device_cols, numMatrices);
+	int maxGlobal = 0;
+    for (int v : range) {
+        if (v > maxGlobal) maxGlobal = v;
+    }
+    int sharedSize = 2 * (maxGlobal + 1) * sizeof(int);
+	MyKernelFunc<<<numBlocks, threadsPerBlock, sharedSize>>>(device_input, device_range, device_rows, device_cols, numMatrices);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(input, device_input, totalElements * sizeof(int), cudaMemcpyDeviceToHost);
@@ -97,7 +104,6 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
     cudaFree(device_rows);
     cudaFree(device_cols);
     delete[] input;
-    delete[] output;
 
 	return matrices;
 }
