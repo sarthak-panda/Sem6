@@ -1,6 +1,9 @@
 #include <vector>
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
+
+#include <iostream>
+
 using namespace std;
 
 __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, int numMatrices){
@@ -15,23 +18,23 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
         offset += d_rows[m] * d_cols[m];
     }
 	extern __shared__ int shared[];
-    int* freqArray = shared;
+    int* freqArray = &shared[0];
     int* prefixSumArray = &shared[maxV + 1]; 
 	int* matrix = d_input+offset;
 	for (int i = 0; i <= maxV; ++i) {
         freqArray[i] = 0;
     }
-    for (int i = 0; i < totalElements; ++i) {
+    for (int i = 0; i < totalElements; i++) {
         int val = matrix[i];
         if (val <= maxV) {
             freqArray[val]++;
         }
     }
 	prefixSumArray[0] = 0;
-    for (int i = 1; i <= maxV; ++i) {
+    for (int i = 1; i <= maxV; i++) {
         prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i - 1];
     }
-	for (int val = 0; val <= maxV; ++val) {
+	for (int val = 0; val <= maxV; val++) {
         int count = freqArray[val];
         int start = prefixSumArray[val];
         for (int c = 0; c < count; ++c) {
@@ -62,8 +65,10 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         for (int i = 0; i < rows[k]; i++) {
             for (int j = 0; j < cols[k]; j++) {
                 input[pos++] = matrices[k][i][j];
+                //cout<<input[pos-1]<<"|";
             }
         }
+        //cout<<endl;
     }
 
 	int *device_input, *device_range, *device_rows, *device_cols;
@@ -72,7 +77,7 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
     cudaMalloc(&device_rows, numMatrices * sizeof(int));
     cudaMalloc(&device_cols, numMatrices * sizeof(int));
 
-	cudaMemcpy(device_input, input, numMatrices * sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(device_input, input, totalElements * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(device_range, range.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(device_rows, rows.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(device_cols, cols.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
@@ -83,6 +88,7 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
     for (int v : range) {
         if (v > maxGlobal) maxGlobal = v;
     }
+    //cout<<maxGlobal<<endl;
     int sharedSize = 2 * (maxGlobal + 1) * sizeof(int);
 	MyKernelFunc<<<numBlocks, threadsPerBlock, sharedSize>>>(device_input, device_range, device_rows, device_cols, numMatrices);
 	cudaDeviceSynchronize();
@@ -95,8 +101,10 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         for (int i = 0; i < r; i++) {
             for (int j = 0; j < c; j++) {
                 matrices[k][i][j] = input[pos++];
+                //cout<<input[pos-1]<<"|";
             }
         }
+        //cout<<endl;
     }
 
 	cudaFree(device_input);
@@ -106,4 +114,27 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
     delete[] input;
 
 	return matrices;
+}
+
+int main() {
+    // Example usage:
+    // A 4x3 matrix as given in the problem statement.
+    vector<vector<vector<int>>> matrices = {{
+        {1, 3, 2},
+        {4, 6, 5},
+        {7, 9, 8},
+        {9, 7, 1}
+    }};
+    // Upper bound for this matrix's elements is 9.
+    vector<int> range = {9};
+
+    vector<vector<vector<int>>> result = modify(matrices, range);
+
+    // Print the modified matrix.
+    for (auto& row : result[0]) {
+        for (auto val : row)
+            cout << val << " ";
+        cout << "\n";
+    }
+    return 0;
 }
