@@ -1,11 +1,8 @@
 #include <vector>
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
-
 #include <iostream>
-
 using namespace std;
-
 __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, int numMatrices){
 	int k = blockIdx.x;
     if (k >= numMatrices) return;
@@ -14,49 +11,60 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
     int cols = d_cols[k];
     int tid = threadIdx.x;
     int totalElements = rows * cols;
+    int n = maxV + 1;
+    int padded_n = 1;
+    while (padded_n < n) {
+        padded_n *= 2;
+    }
 	int offset = 0;
     for (int m = 0; m < k; m++) {
         offset += d_rows[m] * d_cols[m];
     }
 	extern __shared__ int shared[];
     int* freqArray = &shared[0];
-    int* prefixSumArray = &shared[maxV + 1]; 
+    int* prefixSumArray = &shared[n]; 
 	int* matrix = d_input+offset;
-
-	// for (int i = 0; i <= maxV; ++i) {
-    //     freqArray[i] = 0;
-    // }
     for (int i = tid; i <= maxV; i += blockDim.x) {
         freqArray[i] = 0;
     }
     __syncthreads();
-
-    // for (int i = 0; i < totalElements; i++) {
-    //     int val = matrix[i];
-    //     if (val <= maxV) {
-    //         freqArray[val]++;
-    //     }
-    // }
     for (int i = tid; i < totalElements; i += blockDim.x) {
         int val = matrix[i];
         if (val <= maxV) {
-            atomicAdd(&freqArray[val], 1); // Atomic to avoid race
+            atomicAdd(&freqArray[val], 1); 
         }
     }
     __syncthreads();
-    
-	// prefixSumArray[0] = 0;
-    // for (int i = 1; i <= maxV; i++) {
-    //     prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i - 1];
-    // }
-    if (tid == 0) {
-        prefixSumArray[0] = 0;
-        for (int i = 1; i <= maxV; i++) {
-            prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i - 1];
+    for (int i = tid; i < padded_n; i += blockDim.x) {
+        if (i < n) {
+            prefixSumArray[i] = freqArray[i];
+        } else {
+            prefixSumArray[i] = 0; 
         }
     }
     __syncthreads();
-
+    for (int stride = 1; stride < padded_n; stride *= 2) {
+        for (int i = threadIdx.x; i < padded_n / (2 * stride); i += blockDim.x) {
+            int idx = (i + 1) * 2 * stride - 1;
+            if (idx < padded_n) {
+                prefixSumArray[idx] += prefixSumArray[idx - stride];
+            }
+        }
+        __syncthreads();
+    }
+    if(tid==0)prefixSumArray[padded_n - 1] = 0;
+    __syncthreads();
+    for (int stride = padded_n / 2; stride > 0; stride /= 2) {
+        for (int i = threadIdx.x; i < padded_n / (2 * stride); i += blockDim.x) {
+            int idx = (i + 1) * 2 * stride - 1;
+            if (idx < padded_n) {
+                int temp = prefixSumArray[idx - stride];
+                prefixSumArray[idx - stride] = prefixSumArray[idx];
+                prefixSumArray[idx] += temp;
+            }
+        }
+        __syncthreads();
+    }
 	for (int val = 0; val <= maxV; val++) {
         int count = freqArray[val];
         int start = prefixSumArray[val];
@@ -66,12 +74,9 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
             matrix[pos] = val;
         }
     }
-	return;
 }
-
 vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector<int>& range){
 	int numMatrices = matrices.size();
-	// First, flatten matrices into a single contiguous array.
 	int totalElements = 0;
     vector<int> rows(numMatrices), cols(numMatrices);
     for (int i = 0; i < numMatrices; i++) {
@@ -81,41 +86,37 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         cols[i] = c;
         totalElements += r * c;
     }
-
 	int* input = new int[totalElements];
     int pos = 0;
     for (int k = 0; k < numMatrices; k++) {
         for (int i = 0; i < rows[k]; i++) {
             for (int j = 0; j < cols[k]; j++) {
                 input[pos++] = matrices[k][i][j];
-                //cout<<input[pos-1]<<"|";
             }
         }
-        //cout<<endl;
     }
-
 	int *device_input, *device_range, *device_rows, *device_cols;
 	cudaMalloc(&device_input, totalElements * sizeof(int));
     cudaMalloc(&device_range, numMatrices * sizeof(int));
     cudaMalloc(&device_rows, numMatrices * sizeof(int));
     cudaMalloc(&device_cols, numMatrices * sizeof(int));
-
 	cudaMemcpy(device_input, input, totalElements * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(device_range, range.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(device_rows, rows.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(device_cols, cols.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice);
-
 	int threadsPerBlock = 256;
     int numBlocks = numMatrices;
 	int maxGlobal = 0;
     for (int v : range) {
         if (v > maxGlobal) maxGlobal = v;
     }
-    //cout<<maxGlobal<<endl;
-    int sharedSize = 2 * (maxGlobal + 1) * sizeof(int);
+    int nextTwoPowerMaxGlobal = 1;
+    while(nextTwoPowerMaxGlobal < (maxGlobal+1)) nextTwoPowerMaxGlobal *= 2;
+    cout<<maxGlobal<<" "<<nextTwoPowerMaxGlobal<<endl;
+    int sharedSize = (maxGlobal + 1) * sizeof(int);
+    sharedSize += (nextTwoPowerMaxGlobal) * sizeof(int);
 	MyKernelFunc<<<numBlocks, threadsPerBlock, sharedSize>>>(device_input, device_range, device_rows, device_cols, numMatrices);
 	cudaDeviceSynchronize();
-
 	cudaMemcpy(input, device_input, totalElements * sizeof(int), cudaMemcpyDeviceToHost);
 	pos = 0;
     for (int k = 0; k < numMatrices; k++) {
@@ -124,40 +125,46 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         for (int i = 0; i < r; i++) {
             for (int j = 0; j < c; j++) {
                 matrices[k][i][j] = input[pos++];
-                //cout<<input[pos-1]<<"|";
             }
         }
-        //cout<<endl;
     }
-
 	cudaFree(device_input);
     cudaFree(device_range);
     cudaFree(device_rows);
     cudaFree(device_cols);
     delete[] input;
-
 	return matrices;
 }
-
 int main() {
-    // Example usage:
-    // A 4x3 matrix as given in the problem statement.
-    vector<vector<vector<int>>> matrices = {{
+    vector<vector<vector<int>>> matrices = {
+    {
+        {1, 3, 2},
+        {0, 0, 1},
+        {3, 2, 0},
+        {0, 1, 1}
+    },
+    {
+        {1, 3, 2},
+        {4, 6, 5},
+        {7, 3, 6},
+        {4, 7, 1}
+    },
+    {
         {1, 3, 2},
         {4, 6, 5},
         {7, 9, 8},
         {9, 7, 1}
-    }};
-    // Upper bound for this matrix's elements is 9.
-    vector<int> range = {9};
-
+    }
+    };
+    vector<int> range = {3,7,9};
     vector<vector<vector<int>>> result = modify(matrices, range);
-
-    // Print the modified matrix.
-    for (auto& row : result[0]) {
-        for (auto val : row)
-            cout << val << " ";
-        cout << "\n";
+    for(auto& mat :result){
+        for (auto& row : mat) {
+            for (auto val : row)
+                cout << val << " ";
+            cout << "\n";
+        }
+        cout<<"------\n";
     }
     return 0;
 }
