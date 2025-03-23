@@ -12,6 +12,7 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
 	int maxV = d_range[k];
     int rows = d_rows[k];
     int cols = d_cols[k];
+    int tid = threadIdx.x;
     int totalElements = rows * cols;
 	int offset = 0;
     for (int m = 0; m < k; m++) {
@@ -21,19 +22,41 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
     int* freqArray = &shared[0];
     int* prefixSumArray = &shared[maxV + 1]; 
 	int* matrix = d_input+offset;
-	for (int i = 0; i <= maxV; ++i) {
+
+	// for (int i = 0; i <= maxV; ++i) {
+    //     freqArray[i] = 0;
+    // }
+    for (int i = tid; i <= maxV; i += blockDim.x) {
         freqArray[i] = 0;
     }
-    for (int i = 0; i < totalElements; i++) {
+    __syncthreads();
+
+    // for (int i = 0; i < totalElements; i++) {
+    //     int val = matrix[i];
+    //     if (val <= maxV) {
+    //         freqArray[val]++;
+    //     }
+    // }
+    for (int i = tid; i < totalElements; i += blockDim.x) {
         int val = matrix[i];
         if (val <= maxV) {
-            freqArray[val]++;
+            atomicAdd(&freqArray[val], 1); // Atomic to avoid race
         }
     }
-	prefixSumArray[0] = 0;
-    for (int i = 1; i <= maxV; i++) {
-        prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i - 1];
+    __syncthreads();
+    
+	// prefixSumArray[0] = 0;
+    // for (int i = 1; i <= maxV; i++) {
+    //     prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i - 1];
+    // }
+    if (tid == 0) {
+        prefixSumArray[0] = 0;
+        for (int i = 1; i <= maxV; i++) {
+            prefixSumArray[i] = prefixSumArray[i - 1] + freqArray[i - 1];
+        }
     }
+    __syncthreads();
+
 	for (int val = 0; val <= maxV; val++) {
         int count = freqArray[val];
         int start = prefixSumArray[val];
