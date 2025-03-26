@@ -15,15 +15,18 @@ void print(vector<vector<int>>& matrix) {
 
 int main() {
 
-  int range{ 1000 }, rows{ 10000 }, cols{ 100000 };
+  int range{ 1000 }, rows{ 10 }, cols{ 20 };
 
   vector<vector<vector<int>>> matrices;
   matrices.push_back(gen_matrix(range, rows, cols));
   vector<int> ranges(1, range);
+  print(matrices[0]);
 
 #ifdef MODIFY_ON
   vector<vector<vector<int>>> upd_matrices = modify(matrices, ranges);
 #endif
+
+print(upd_matrices[0]);
 
 #ifdef CHECK_ON
   if (check(upd_matrices, matrices)) cout << "Test Passed";

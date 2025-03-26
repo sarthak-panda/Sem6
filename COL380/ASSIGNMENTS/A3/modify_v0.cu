@@ -67,11 +67,13 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
         }
         __syncthreads();
     }
-	for (int val = 0; val < maxV; val++) {
+	for (int val = 0; val <= maxV; val++) {
+        int count = freqArray[val];
         int start = prefixSumArray[val];
-        int end = prefixSumArray[val + 1];
-        for (int pos = start + tid; pos < end; pos += blockDim.x) {
-            if (pos < totalElements) matrix[pos] = val;
+        for (int c = 0; c < count; ++c) {
+            int pos = start + c;
+            if (pos >= totalElements) break;
+            matrix[pos] = val;
         }
     }
 }
@@ -134,4 +136,37 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
     cudaFree(device_cols);
     delete[] input;
 	return matrices;
+}
+int main() {
+    vector<vector<vector<int>>> matrices = {
+    {
+        {1, 3, 2},
+        {0, 0, 1},
+        {3, 2, 0},
+        {0, 1, 1}
+    },
+    {
+        {1, 3, 2},
+        {4, 6, 5},
+        {7, 3, 6},
+        {4, 7, 1}
+    },
+    {
+        {1, 3, 2},
+        {4, 6, 5},
+        {7, 9, 8},
+        {9, 7, 1}
+    }
+    };
+    vector<int> range = {3,7,9};
+    vector<vector<vector<int>>> result = modify(matrices, range);
+    for(auto& mat :result){
+        for (auto& row : mat) {
+            for (auto val : row)
+                cout << val << " ";
+            cout << "\n";
+        }
+        cout<<"------\n";
+    }
+    return 0;
 }
