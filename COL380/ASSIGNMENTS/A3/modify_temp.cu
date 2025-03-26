@@ -305,12 +305,27 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
     //     printf("\n");
     // }
 
-	for (int val = 0; val <= maxV; val++) {
-        int count = freqArray[val];
+	// for (int val = 0; val <= maxV; val++) {
+    //     int count = freqArray[val];
+    //     int start = prefixSumArray[val];
+    //     for (int c = 0; c < count; ++c) {
+    //         int pos = start + c;
+    //         if (pos >= totalElements) break;
+    //         matrix[pos] = val;
+    //     }
+    // }
+
+    // for (int val = 0; val <= maxV; val++) {
+    //     int start = prefixSumArray[val];
+    //     int end = prefixSumArray[val + 1];
+    //     for (int pos = start + tid; pos < end; pos += blockDim.x) {
+    //         if (pos < totalElements) matrix[pos] = val;
+    //     }
+    // }
+    for (int val = threadIdx.x; val <= maxV; val += blockDim.x) {
         int start = prefixSumArray[val];
-        for (int c = 0; c < count; ++c) {
-            int pos = start + c;
-            if (pos >= totalElements) break;
+        int end = (val == maxV) ? totalElements : prefixSumArray[val + 1];
+        for (int pos = start; pos < end; pos++) {
             matrix[pos] = val;
         }
     }

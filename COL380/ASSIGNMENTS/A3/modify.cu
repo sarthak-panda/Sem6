@@ -2,7 +2,7 @@
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
 #include <iostream>
-#include <modify.cuh>
+#include "modify.cuh"
 
 using namespace std;
 __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, int numMatrices){
@@ -67,11 +67,11 @@ __global__ void MyKernelFunc(int* d_input, const int* d_range, const int* d_rows
         }
         __syncthreads();
     }
-	for (int val = 0; val < maxV; val++) {
+	for (int val = threadIdx.x; val <= maxV; val += blockDim.x) {
         int start = prefixSumArray[val];
-        int end = prefixSumArray[val + 1];
-        for (int pos = start + tid; pos < end; pos += blockDim.x) {
-            if (pos < totalElements) matrix[pos] = val;
+        int end = (val == maxV) ? totalElements : prefixSumArray[val + 1];
+        for (int pos = start; pos < end; pos++) {
+            matrix[pos] = val;
         }
     }
 }
