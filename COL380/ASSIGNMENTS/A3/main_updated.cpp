@@ -61,9 +61,9 @@ int main() {
         for (int j = 0; j < (int)maxValues.size(); j++) {
             
             long long maxVal = maxValues[j];
-            if(rows==10000 && cols==10000 && maxVal==100000000) continue;
+            //if(rows==10000 && cols==10000 && maxVal==100000000) continue;
             cout << "\n-------------------------------------------------\n";
-            cout << "Testcase " << (i*maxValues.size() + j + 1) << " of 19\n";
+            cout << "Testcase " << (i*maxValues.size() + j + 1) << " of 20\n";
             cout << "Matrix size = " << rows << " x " << cols 
                  << ", |M| = " << M 
                  << ", maxValue = " << maxVal << "\n";
@@ -129,9 +129,9 @@ int main() {
         }
     }
 
-    // If all 19 testcases passed, write times to data.csv in the table order
+    // If all 20 testcases passed, write times to data.csv in the table order
     if (allPassed) {
-        cout << "\nAll 19 tests passed. Writing times to data.csv...\n";
+        cout << "\nAll 20 tests passed. Writing times to data.csv...\n";
 
         ofstream fout("data.csv");
         if (!fout) {
