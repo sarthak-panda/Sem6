@@ -294,19 +294,23 @@
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\15.pdf\\",
-			"color": "foldercolorizer.color_00ff00"
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\16.pdf\\",
-			"color": "foldercolorizer.color_00ff00"
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\17.pdf\\",
-			"color": "foldercolorizer.color_00ff00"
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\18.pdf\\",
-			"color": "foldercolorizer.color_00ff00"
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL362\\Assignments\\A2\\",
@@ -390,14 +394,41 @@
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\19.pdf\\",
-			"color": "foldercolorizer.color_00ff00"
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL352\\Lectures\\20.pdf\\",
-			"color": "foldercolorizer.color_00ff00"
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
 		},
 		{
 			"folderPath": "Sem6\\COL380\\ASSIGNMENTS\\A2\\",
+			"badge": "✅",
+			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\21.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\22.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\23.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\24.pdf\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL352\\Lectures\\25.pdf\\",
 			"badge": "✅",
 			"color": "foldercolorizer.color_00ff00"
 		}
