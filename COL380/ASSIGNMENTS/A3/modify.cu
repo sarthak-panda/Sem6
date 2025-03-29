@@ -10,11 +10,11 @@ int nextPowerOfTwo(int n) {
     while (p < n) p *= 2;
     return p;
 }
-__global__ void initFreqKernel(int* prefix_global, const int* d_range, const int* d_prefix_blocks, int max_padded_size, int numMatrices) {
+__global__ void initFreqKernel(int* prefix_global, const int* d_range, const int* d_prefix_blocks_init, int max_padded_size, int numMatrices) {
     int block_idx = blockIdx.x;
     int matrix_k = -1;
     for (int i = 0; i < numMatrices; ++i) {
-        if (d_prefix_blocks[i] <= block_idx && block_idx < d_prefix_blocks[i+1]) {
+        if (d_prefix_blocks_init[i] <= block_idx && block_idx < d_prefix_blocks_init[i+1]) {
             matrix_k = i;
             break;
         }
@@ -23,7 +23,7 @@ __global__ void initFreqKernel(int* prefix_global, const int* d_range, const int
     int maxV = d_range[matrix_k];
     int* freqArray = &prefix_global[matrix_k * max_padded_size];
     int threadsPerBlock = blockDim.x;
-    int blocks_before = block_idx - d_prefix_blocks[matrix_k];
+    int blocks_before = block_idx - d_prefix_blocks_init[matrix_k];
     int start = blocks_before * threadsPerBlock;
     int element_idx = start + threadIdx.x;
     if (element_idx <= maxV) {
@@ -179,15 +179,25 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         checkCuda(cudaMemcpy(d_range, range.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_range copy");
         checkCuda(cudaMemcpy(d_rows, rows.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_rows copy");
         checkCuda(cudaMemcpy(d_cols, cols.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_cols copy");
+        vector<int> prefix_blocks_init(numMatrices + 1, 0);
+        for (int i = 0; i < numMatrices; ++i) {
+            int elements = range[i] + 1; // maxV + 1 elements to initialize
+            int blocks_needed = (elements + 1023) / 1024; // ceil division by threadsPerBlock (1024)
+            prefix_blocks_init[i+1] = prefix_blocks_init[i] + blocks_needed;
+        }
         vector<int> prefix_blocks(numMatrices + 1, 0);
         for (int i = 0; i < numMatrices; ++i) {
             const int elements = rows[i] * cols[i];
             prefix_blocks[i+1] = prefix_blocks[i] + (elements + 1023)/1024;
         }
+        int* d_prefix_blocks_init = nullptr;
+        checkCuda(cudaMalloc(&d_prefix_blocks_init, (numMatrices + 1) * sizeof(int)), "d_prefix_blocks_init alloc");
+        CudaPtrGuard guard_d_prefix_blocks_init(reinterpret_cast<void**>(&d_prefix_blocks_init));
+        checkCuda(cudaMemcpy(d_prefix_blocks_init, prefix_blocks_init.data(), (numMatrices + 1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_init copy");
         checkCuda(cudaMalloc(&d_prefix_blocks, (numMatrices + 1) * sizeof(int)),"d_prefix_blocks alloc");
         CudaPtrGuard guard_prefix_blocks(reinterpret_cast<void**>(&d_prefix_blocks));
         checkCuda(cudaMemcpy(d_prefix_blocks, prefix_blocks.data(), (numMatrices + 1) * sizeof(int), cudaMemcpyHostToDevice),"d_prefix_blocks copy");
-        initFreqKernel<<<prefix_blocks[numMatrices], 1024>>>(prefix_global, d_range, d_prefix_blocks, max_padded_size, numMatrices);
+        initFreqKernel<<<prefix_blocks_init[numMatrices], 1024>>>(prefix_global, d_range, d_prefix_blocks_init, max_padded_size, numMatrices);
         checkCuda(cudaGetLastError(), "initFreqKernel launch");
         checkCuda(cudaDeviceSynchronize(), "initFreqKernel sync");
         countFreqKernel<<<prefix_blocks[numMatrices], 1024>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks, numMatrices, prefix_global, max_padded_size, 1024);
