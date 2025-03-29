@@ -10,24 +10,14 @@ int nextPowerOfTwo(int n) {
     while (p < n) p *= 2;
     return p;
 }
-__global__ void initFreqKernel(int* prefix_global, const int* d_range, const int* d_prefix_blocks, int max_padded_size, int numMatrices) {
-    int block_idx = blockIdx.x;
-    int matrix_k = -1;
-    for (int i = 0; i < numMatrices; ++i) {
-        if (d_prefix_blocks[i] <= block_idx && block_idx < d_prefix_blocks[i+1]) {
-            matrix_k = i;
-            break;
-        }
-    }
-    if (matrix_k == -1) return;
-    int maxV = d_range[matrix_k];
-    int* freqArray = &prefix_global[matrix_k * max_padded_size];
-    int threadsPerBlock = blockDim.x;
-    int blocks_before = block_idx - d_prefix_blocks[matrix_k];
-    int start = blocks_before * threadsPerBlock;
-    int element_idx = start + threadIdx.x;
-    if (element_idx <= maxV) {
-        freqArray[element_idx] = 0;
+__global__ void initFreqKernel(int* prefix_global, const int* d_range, int max_padded_size, int numMatrices) {
+    int k = blockIdx.x;
+    if (k >= numMatrices) return;
+    int maxV = d_range[k];
+    int* freqArray = &prefix_global[k * max_padded_size];
+    int tid = threadIdx.x;
+    for (int i = tid; i <= maxV; i += blockDim.x) {
+        freqArray[i] = 0;
     }
 }
 __global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, 
@@ -52,14 +42,13 @@ __global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_r
     int* matrix = d_input + offset;
     int blocks_before = block_idx - d_prefix_blocks[matrix_k];
     int start = blocks_before * threadsPerBlock;
-    //int end = min(start + threadsPerBlock, elements);
-    //for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
-    int i = start + threadIdx.x;
-    int val = matrix[i];
-    if (val <= maxV) {
-        atomicAdd(&freqArray[val], 1);
+    int end = min(start + threadsPerBlock, elements);
+    for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
+        int val = matrix[i];
+        if (val <= maxV) {
+            atomicAdd(&freqArray[val], 1);
+        }
     }
-    //}
 }
 __global__ void writeBackKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, 
                                 int numMatrices, int* prefix_global, int max_padded_size) {
@@ -187,7 +176,7 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         checkCuda(cudaMalloc(&d_prefix_blocks, (numMatrices + 1) * sizeof(int)),"d_prefix_blocks alloc");
         CudaPtrGuard guard_prefix_blocks(reinterpret_cast<void**>(&d_prefix_blocks));
         checkCuda(cudaMemcpy(d_prefix_blocks, prefix_blocks.data(), (numMatrices + 1) * sizeof(int), cudaMemcpyHostToDevice),"d_prefix_blocks copy");
-        initFreqKernel<<<prefix_blocks[numMatrices], 1024>>>(prefix_global, d_range, d_prefix_blocks, max_padded_size, numMatrices);
+        initFreqKernel<<<numMatrices, 1024>>>(prefix_global, d_range, max_padded_size, numMatrices);
         checkCuda(cudaGetLastError(), "initFreqKernel launch");
         checkCuda(cudaDeviceSynchronize(), "initFreqKernel sync");
         countFreqKernel<<<prefix_blocks[numMatrices], 1024>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks, numMatrices, prefix_global, max_padded_size, 1024);
