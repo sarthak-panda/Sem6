@@ -3,231 +3,355 @@
 #include <iostream>
 #include <algorithm>
 #include <stdexcept>
-#include "modify.cuh"
 using namespace std;
-int nextPowerOfTwo(int n) {
-    int p = 1;
-    while (p < n) p *= 2;
-    return p;
+
+// Helper function to compute prefix sums
+vector<int> computePrefixSum(const vector<int>& sizes) {
+    vector<int> prefix(sizes.size() + 1, 0);
+    for (int i = 0; i < sizes.size(); ++i)
+        prefix[i+1] = prefix[i] + sizes[i];
+    return prefix;
 }
-// __global__ void initFreqKernel(int* prefix_global, const int* d_range, const int* d_prefix_blocks_init, int max_padded_size, int numMatrices) {
-//     int block_idx = blockIdx.x;
-//     int matrix_k = -1;
-//     for (int i = 0; i < numMatrices; ++i) {
-//         if (d_prefix_blocks_init[i] <= block_idx && block_idx < d_prefix_blocks_init[i+1]) {
-//             matrix_k = i;
-//             break;
-//         }
-//     }
-//     if (matrix_k == -1) return;
-//     int maxV = d_range[matrix_k];
-//     int* freqArray = &prefix_global[matrix_k * max_padded_size];
-//     int threadsPerBlock = blockDim.x;
-//     int blocks_before = block_idx - d_prefix_blocks_init[matrix_k];
-//     int start = blocks_before * threadsPerBlock;
-//     int element_idx = start + threadIdx.x;
-//     if (element_idx <= maxV) {
-//         freqArray[element_idx] = 0;
-//     }
-// }
-__global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, 
-                                const int* d_prefix_blocks, int numMatrices, int* prefix_global, 
-                                int max_padded_size, int threadsPerBlock) {
+
+// Kernel to initialize frequency arrays
+__global__ void initFreqKernel(int* prefix_global, const int* d_range, const int* d_prefix_freq, const int* d_prefix_blocks_init int numMatrices) {
     int block_idx = blockIdx.x;
     int matrix_k = -1;
     for (int i = 0; i < numMatrices; ++i) {
-        if (d_prefix_blocks[i] <= block_idx && block_idx < d_prefix_blocks[i+1]) {
+        if (d_prefix_blocks_init[i] <= block_idx && block_idx < d_prefix_blocks_init[i+1]) {
             matrix_k = i;
             break;
         }
     }
     if (matrix_k == -1) return;
+
     int maxV = d_range[matrix_k];
-    int elements = d_rows[matrix_k] * d_cols[matrix_k];
-    int* freqArray = &prefix_global[matrix_k * max_padded_size];
-    int offset = 0;
-    for (int m = 0; m < matrix_k; m++) {
-        offset += d_rows[m] * d_cols[m];
-    }
-    int* matrix = d_input + offset;
-    int blocks_before = block_idx - d_prefix_blocks[matrix_k];
-    int start = blocks_before * threadsPerBlock;
-    //int end = min(start + threadsPerBlock, elements);
-    //for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
-    int i = start + threadIdx.x;
-    int val = matrix[i];
-    if (val <= maxV) {
-        atomicAdd(&freqArray[val], 1);
-    }
-    //}
+    int* freqArray = &prefix_global[d_prefix_freq[matrix_k]];
+    int elements = maxV + 1;
+    
+    int block_offset = block_idx - d_prefix_blocks_init[matrix_k];
+    int tid = block_offset * blockDim.x + threadIdx.x;
+    if (tid < elements) freqArray[tid] = 0;
 }
-__global__ void writeBackKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, 
-                                int numMatrices, int* prefix_global, int max_padded_size) {
-    int k = blockIdx.x;
-    if (k >= numMatrices) return;
-    int maxV = d_range[k];
-    int rows = d_rows[k];
-    int cols = d_cols[k];
-    int totalElements = rows * cols;
+
+// Kernel to count frequencies
+__global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, const int* d_prefix_blocks_count const int* d_prefix_freq, int numMatrices, int* prefix_global) {
+    int block_idx = blockIdx.x;
+    int matrix_k = -1;
+    for (int i = 0; i < numMatrices; ++i) {
+        if (d_prefix_blocks_count[i] <= block_idx && block_idx < d_prefix_blocks_count[i+1]) {
+            matrix_k = i;
+            break;
+        }
+    }
+    if (matrix_k == -1) return;
+
+    int maxV = d_range[matrix_k];
+    int rows = d_rows[matrix_k];
+    int cols = d_cols[matrix_k];
+    int elements = rows * cols;
+    int* freqArray = &prefix_global[d_prefix_freq[matrix_k]];
+    
+    int block_offset = block_idx - d_prefix_blocks_count[matrix_k];
+    int start = block_offset * blockDim.x;
+    int end = min(start + blockDim.x, elements);
+    
+    int input_offset = 0;
+    for (int m = 0; m < matrix_k; ++m)
+        input_offset += d_rows[m] * d_cols[m];
+    
+    for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
+        int val = d_input[input_offset + i];
+        if (val <= maxV) atomicAdd(&freqArray[val], 1);
+    }
+}
+
+// Distributed Blelloch scan implementation
+__global__ void localScanKernel(int* prefix_global, const int* d_range const int* d_prefix_freq, const int* d_prefix_blocks_scan int* chunk_sums, int numMatrices) {
+    int block_idx = blockIdx.x;
+    int matrix_k = -1;
+    for (int i = 0; i < numMatrices; ++i) {
+        if (d_prefix_blocks_scan[i] <= block_idx && block_idx < d_prefix_blocks_scan[i+1]) {
+            matrix_k = i;
+            break;
+        }
+    }
+    if (matrix_k == -1) return;
+
+    int maxV = d_range[matrix_k];
     int n = maxV + 1;
-	int p = 1;
-    while (p < n) p *= 2;
-    int padded_n = p;
-    int* prefixSumArray = &prefix_global[k * max_padded_size];
+    int* arr = &prefix_global[d_prefix_freq[matrix_k]];
+    
+    int chunk_idx = block_idx - d_prefix_blocks_scan[matrix_k];
+    int chunk_size = 1024;
+    int start = chunk_idx * chunk_size;
+    int end = min(start + chunk_size, n);
     int tid = threadIdx.x;
-    for (int i = tid; i < padded_n; i += blockDim.x) {
-        if (i >= n) {
-            prefixSumArray[i] = 0;
-        }
-    }
-    __syncthreads();
-    for (int stride = 1; stride < padded_n; stride *= 2) {
-        for (int i = tid; i < padded_n / (2 * stride); i += blockDim.x) {
-            int idx = (i + 1) * 2 * stride - 1;
-            if (idx < padded_n) {
-                prefixSumArray[idx] += prefixSumArray[idx - stride];
-            }
-        }
+
+    // Local upsweep
+    for (int stride = 1; stride < chunk_size; stride *= 2) {
+        int idx = start + tid * stride * 2 + stride - 1;
+        if (idx < end && (idx - stride) >= start)
+            arr[idx] += arr[idx - stride];
         __syncthreads();
     }
-    if (tid == 0) {
-        prefixSumArray[padded_n - 1] = 0;
+
+    // Store chunk sum
+    if (tid == 0 && end > start) {
+        chunk_sums[block_idx] = arr[end-1];
+        arr[end-1] = 0;
     }
     __syncthreads();
-    for (int stride = padded_n / 2; stride > 0; stride /= 2) {
-        for (int i = tid; i < padded_n / (2 * stride); i += blockDim.x) {
-            int idx = (i + 1) * 2 * stride - 1;
-            if (idx < padded_n) {
-                int temp = prefixSumArray[idx - stride];
-                prefixSumArray[idx - stride] = prefixSumArray[idx];
-                prefixSumArray[idx] += temp;
-            }
+
+    // Local downsweep
+    for (int stride = chunk_size/2; stride >= 1; stride /= 2) {
+        int idx = start + tid * stride * 2 + stride - 1;
+        if (idx < end) {
+            int temp = arr[idx - stride];
+            arr[idx - stride] = arr[idx];
+            arr[idx] += temp;
         }
         __syncthreads();
-    }
-    int offset = 0;
-    for (int m = 0; m < k; m++) {
-        offset += d_rows[m] * d_cols[m];
-    }
-    int* matrix = d_input + offset;
-    for (int val = tid; val <= maxV; val += blockDim.x) {
-        int start = prefixSumArray[val];
-        int end = (val == maxV) ? totalElements : prefixSumArray[val + 1];
-        if (start >= totalElements || end > totalElements) continue;
-        for (int pos = start; pos < end; pos++) {
-            matrix[pos] = val;
-        }
     }
 }
+
+__global__ void globalOffsetKernel(int* chunk_sums, const int* d_prefix_blocks_scan, int numMatrices) {
+    int matrix_k = blockIdx.x;
+    if (matrix_k >= numMatrices) return;
+    
+    int start = d_prefix_blocks_scan[matrix_k];
+    int end = d_prefix_blocks_scan[matrix_k+1];
+    int n = end - start;
+    
+    extern __shared__ int shared_sums[];
+    int tid = threadIdx.x;
+    
+    if (tid < n) shared_sums[tid] = chunk_sums[start + tid];
+    else shared_sums[tid] = 0;
+    __syncthreads();
+
+    // Blelloch scan in shared memory
+    for (int stride = 1; stride < blockDim.x; stride *= 2) {
+        if (tid >= stride) shared_sums[tid] += shared_sums[tid - stride];
+        __syncthreads();
+    }
+
+    if (tid < n) chunk_sums[start + tid] = shared_sums[tid];
+}
+
+__global__ void applyOffsetKernel(int* prefix_global, const int* d_range, const int* d_prefix_freq, const int* d_prefix_blocks_scan, const int* chunk_sums, int numMatrices) {
+    int block_idx = blockIdx.x;
+    int matrix_k = -1;
+    for (int i = 0; i < numMatrices; ++i) {
+        if (d_prefix_blocks_scan[i] <= block_idx && block_idx < d_prefix_blocks_scan[i+1]) {
+            matrix_k = i;
+            break;
+        }
+    }
+    if (matrix_k == -1) return;
+
+    int maxV = d_range[matrix_k];
+    int* arr = &prefix_global[d_prefix_freq[matrix_k]];
+    int chunk_offset = chunk_sums[block_idx];
+    
+    int chunk_idx = block_idx - d_prefix_blocks_scan[matrix_k];
+    int chunk_size = 1024;
+    int start = chunk_idx * chunk_size;
+    int end = min(start + chunk_size, maxV + 1);
+    
+    for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
+        arr[i] += chunk_offset;
+    }
+}
+
+// Distributed write-back kernel
+__global__ void writeBackKernel(int* d_input, const int* d_range, const int* d_rows const int* d_cols, const int* d_prefix_blocks_write const int* d_prefix_freq, int numMatrices int* prefix_global) {
+    int block_idx = blockIdx.x;
+    int matrix_k = -1;
+    for (int i = 0; i < numMatrices; ++i) {
+        if (d_prefix_blocks_write[i] <= block_idx && block_idx < d_prefix_blocks_write[i+1]) {
+            matrix_k = i;
+            break;
+        }
+    }
+    if (matrix_k == -1) return;
+
+    int maxV = d_range[matrix_k];
+    int* prefixArr = &prefix_global[d_prefix_freq[matrix_k]];
+    int elements = d_rows[matrix_k] * d_cols[matrix_k];
+    
+    int block_offset = block_idx - d_prefix_blocks_write[matrix_k];
+    int val_start = block_offset * blockDim.x;
+    int val_end = min(val_start + blockDim.x, maxV + 1);
+    
+    int input_offset = 0;
+    for (int m = 0; m < matrix_k; ++m)
+        input_offset += d_rows[m] * d_cols[m];
+    
+    for (int val = val_start + threadIdx.x; val < val_end; val += blockDim.x) {
+        int start = prefixArr[val];
+        int end = (val == maxV) ? elements : prefixArr[val + 1];
+        
+        int* matrix = d_input + input_offset;
+        for (int pos = start; pos < end; ++pos)
+            matrix[pos] = val;
+    }
+}
+
 struct CudaPtrGuard {
     void** ptr;
     explicit CudaPtrGuard(void** p) : ptr(p) {}
     ~CudaPtrGuard() { 
-        if (ptr && *ptr) {
-            cudaFree(*ptr); 
-            *ptr = nullptr;
-        }
+        if (ptr && *ptr) cudaFree(*ptr); 
     }
 };
+
 void checkCuda(cudaError_t err, const char* msg) {
     if (err != cudaSuccess) {
         cerr << "CUDA Error (" << msg << "): " << cudaGetErrorString(err) << endl;
         throw runtime_error(cudaGetErrorString(err));
     }
 }
+
 vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector<int>& range) {
     int* host_input = nullptr;
-    vector<int> rows, cols;
-    int *d_input = nullptr, *d_range = nullptr, *d_rows = nullptr;
-    int *d_cols = nullptr, *prefix_global = nullptr, *d_prefix_blocks = nullptr;
+    int *d_input = nullptr, *d_range = nullptr, *d_rows = nullptr, *d_cols = nullptr;
+    int *prefix_global = nullptr, *d_prefix_freq = nullptr;
+    int *d_prefix_blocks_init = nullptr, *d_prefix_blocks_count = nullptr;
+    int *d_prefix_blocks_scan = nullptr, *d_prefix_blocks_write = nullptr;
+    int *chunk_sums = nullptr;
+
     try {
         const int numMatrices = matrices.size();
-        rows.resize(numMatrices);
-        cols.resize(numMatrices);
+        vector<int> rows(numMatrices), cols(numMatrices), freq_sizes(numMatrices);
         int totalElements = 0;
-        for (int i = 0; i < numMatrices; i++) {
-            if (matrices[i].empty() || matrices[i][0].empty()) {
-                throw runtime_error("Empty matrix detected");
-            }
+
+        // Initialize metadata
+        for (int i = 0; i < numMatrices; ++i) {
             rows[i] = matrices[i].size();
             cols[i] = matrices[i][0].size();
             totalElements += rows[i] * cols[i];
+            freq_sizes[i] = range[i] + 1;
         }
+
+        // Prepare host input
         host_input = new int[totalElements];
         int pos = 0;
-        for (int k = 0; k < numMatrices; k++) {
-            for (const auto& row : matrices[k]) {
-                for (int val : row) {
-                    host_input[pos++] = val;
-                }
-            }
-        }
-        checkCuda(cudaMalloc(&d_input, totalElements * sizeof(int)), "d_input alloc");
-        CudaPtrGuard guard_d_input(reinterpret_cast<void**>(&d_input));
-        checkCuda(cudaMalloc(&d_range, numMatrices * sizeof(int)), "d_range alloc");
-        CudaPtrGuard guard_d_range(reinterpret_cast<void**>(&d_range));
-        checkCuda(cudaMalloc(&d_rows, numMatrices * sizeof(int)), "d_rows alloc");
-        CudaPtrGuard guard_d_rows(reinterpret_cast<void**>(&d_rows));
-        checkCuda(cudaMalloc(&d_cols, numMatrices * sizeof(int)), "d_cols alloc");
-        CudaPtrGuard guard_d_cols(reinterpret_cast<void**>(&d_cols));
-        const int max_range = *max_element(range.begin(), range.end());
-        const int max_freq_size = max_range + 1;
-        const int max_padded_size = nextPowerOfTwo(max_freq_size);
-        checkCuda(cudaMalloc(&prefix_global, numMatrices * max_padded_size * sizeof(int)),"prefix_global alloc");
-        CudaPtrGuard guard_prefix_global(reinterpret_cast<void**>(&prefix_global));
-        checkCuda(cudaMemcpy(d_input, host_input, totalElements * sizeof(int), cudaMemcpyHostToDevice), "d_input copy");
-        checkCuda(cudaMemcpy(d_range, range.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_range copy");
-        checkCuda(cudaMemcpy(d_rows, rows.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_rows copy");
-        checkCuda(cudaMemcpy(d_cols, cols.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_cols copy");
+        for (const auto& m : matrices)
+            for (const auto& r : m)
+                for (int v : r)
+                    host_input[pos++] = v;
+
+        // Compute prefix sums for frequency arrays
+        vector<int> prefix_freq = computePrefixSum(freq_sizes);
+        const int total_freq_size = prefix_freq.back();
+
+        // Allocate device memory
+        checkCuda(cudaMalloc(&d_input, totalElements * sizeof(int)), "d_input");
+        checkCuda(cudaMalloc(&d_range, numMatrices * sizeof(int)), "d_range");
+        checkCuda(cudaMalloc(&d_rows, numMatrices * sizeof(int)), "d_rows");
+        checkCuda(cudaMalloc(&d_cols, numMatrices * sizeof(int)), "d_cols");
+        checkCuda(cudaMalloc(&prefix_global, total_freq_size * sizeof(int)), "prefix_global");
+        checkCuda(cudaMalloc(&d_prefix_freq, (numMatrices+1)*sizeof(int)), "d_prefix_freq");
+
+        // Copy data to device
+        checkCuda(cudaMemcpy(d_input, host_input, totalElements*sizeof(int), cudaMemcpyHostToDevice));
+        checkCuda(cudaMemcpy(d_range, range.data(), numMatrices*sizeof(int), cudaMemcpyHostToDevice));
+        checkCuda(cudaMemcpy(d_rows, rows.data(), numMatrices*sizeof(int), cudaMemcpyHostToDevice));
+        checkCuda(cudaMemcpy(d_cols, cols.data(), numMatrices*sizeof(int), cudaMemcpyHostToDevice));
+        checkCuda(cudaMemcpy(d_prefix_freq, prefix_freq.data(), (numMatrices+1)*sizeof(int), cudaMemcpyHostToDevice));
+
+        // Initialize frequency arrays
         vector<int> prefix_blocks_init(numMatrices + 1, 0);
-        // for (int i = 0; i < numMatrices; ++i) {
-        //     int elements = range[i] + 1; // maxV + 1 elements to initialize
-        //     int blocks_needed = (elements + 1023) / 1024; // ceil division by threadsPerBlock (1024)
-        //     prefix_blocks_init[i+1] = prefix_blocks_init[i] + blocks_needed;
-        // }
-        vector<int> prefix_blocks(numMatrices + 1, 0);
         for (int i = 0; i < numMatrices; ++i) {
-            const int elements = rows[i] * cols[i];
-            prefix_blocks[i+1] = prefix_blocks[i] + (elements + 1023)/1024;
+            int blocks = (freq_sizes[i] + 1023) / 1024;
+            prefix_blocks_init[i+1] = prefix_blocks_init[i] + blocks;
         }
-        // int* d_prefix_blocks_init = nullptr;
-        // checkCuda(cudaMalloc(&d_prefix_blocks_init, (numMatrices + 1) * sizeof(int)), "d_prefix_blocks_init alloc");
-        // CudaPtrGuard guard_d_prefix_blocks_init(reinterpret_cast<void**>(&d_prefix_blocks_init));
-        // checkCuda(cudaMemcpy(d_prefix_blocks_init, prefix_blocks_init.data(), (numMatrices + 1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_init copy");
-        checkCuda(cudaMalloc(&d_prefix_blocks, (numMatrices + 1) * sizeof(int)),"d_prefix_blocks alloc");
-        CudaPtrGuard guard_prefix_blocks(reinterpret_cast<void**>(&d_prefix_blocks));
-        checkCuda(cudaMemcpy(d_prefix_blocks, prefix_blocks.data(), (numMatrices + 1) * sizeof(int), cudaMemcpyHostToDevice),"d_prefix_blocks copy");
-        // initFreqKernel<<<prefix_blocks_init[numMatrices], 1024>>>(prefix_global, d_range, d_prefix_blocks_init, max_padded_size, numMatrices);
-        // checkCuda(cudaGetLastError(), "initFreqKernel launch");
-        // checkCuda(cudaDeviceSynchronize(), "initFreqKernel sync");
-        countFreqKernel<<<prefix_blocks[numMatrices], 1024>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks, numMatrices, prefix_global, max_padded_size, 1024);
-        checkCuda(cudaGetLastError(), "countFreqKernel launch");
-        checkCuda(cudaDeviceSynchronize(), "countFreqKernel sync");
-        writeBackKernel<<<numMatrices, 1024>>>(d_input, d_range, d_rows, d_cols, numMatrices, prefix_global, max_padded_size);
-        checkCuda(cudaGetLastError(), "writeBackKernel launch");
-        checkCuda(cudaDeviceSynchronize(), "writeBackKernel sync");
-        checkCuda(cudaMemcpy(host_input, d_input, totalElements * sizeof(int), cudaMemcpyDeviceToHost), "results copy");
+        checkCuda(cudaMalloc(&d_prefix_blocks_init, (numMatrices+1)*sizeof(int)), "d_prefix_blocks_init");
+        checkCuda(cudaMemcpy(d_prefix_blocks_init, prefix_blocks_init.data(), (numMatrices+1)*sizeof(int), cudaMemcpyHostToDevice));
+        initFreqKernel<<<prefix_blocks_init.back(), 1024>>>(prefix_global, d_range, d_prefix_freq, d_prefix_blocks_init, numMatrices);
+        checkCuda(cudaDeviceSynchronize(), "initFreqKernel");
+
+        // Count frequencies
+        vector<int> prefix_blocks_count(numMatrices + 1, 0);
+        for (int i = 0; i < numMatrices; ++i) {
+            int blocks = (rows[i] * cols[i] + 1023) / 1024;
+            prefix_blocks_count[i+1] = prefix_blocks_count[i] + blocks;
+        }
+        checkCuda(cudaMalloc(&d_prefix_blocks_count, (numMatrices+1)*sizeof(int)), "d_prefix_blocks_count");
+        checkCuda(cudaMemcpy(d_prefix_blocks_count, prefix_blocks_count.data(), (numMatrices+1)*sizeof(int), cudaMemcpyHostToDevice));
+        countFreqKernel<<<prefix_blocks_count.back(), 1024>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks_count, d_prefix_freq, numMatrices, prefix_global);
+        checkCuda(cudaDeviceSynchronize(), "countFreqKernel");
+
+        // Distributed prefix sum computation
+        vector<int> prefix_blocks_scan(numMatrices + 1, 0);
+        for (int i = 0; i < numMatrices; ++i) {
+            int chunks = (freq_sizes[i] + 1023) / 1024;
+            prefix_blocks_scan[i+1] = prefix_blocks_scan[i] + chunks;
+        }
+        checkCuda(cudaMalloc(&d_prefix_blocks_scan, (numMatrices+1)*sizeof(int)), "d_prefix_blocks_scan");
+        checkCuda(cudaMemcpy(d_prefix_blocks_scan, prefix_blocks_scan.data(), (numMatrices+1)*sizeof(int), cudaMemcpyHostToDevice));
+        checkCuda(cudaMalloc(&chunk_sums, prefix_blocks_scan.back() * sizeof(int)), "chunk_sums");
+
+        // Phase 1: Local chunk scans
+        localScanKernel<<<prefix_blocks_scan.back(), 1024>>>(prefix_global, d_range, d_prefix_freq, d_prefix_blocks_scan, chunk_sums, numMatrices);
+        checkCuda(cudaDeviceSynchronize(), "localScanKernel");
+
+        // Phase 2: Compute global offsets
+        globalOffsetKernel<<<numMatrices, 1024, 1024*sizeof(int)>>>(chunk_sums, d_prefix_blocks_scan, numMatrices);
+        checkCuda(cudaDeviceSynchronize(), "globalOffsetKernel");
+
+        // Phase 3: Apply offsets
+        applyOffsetKernel<<<prefix_blocks_scan.back(), 1024>>>(prefix_global, d_range, d_prefix_freq, d_prefix_blocks_scan, chunk_sums, numMatrices);
+        checkCuda(cudaDeviceSynchronize(), "applyOffsetKernel");
+
+        // Write back sorted values
+        vector<int> prefix_blocks_write(numMatrices + 1, 0);
+        for (int i = 0; i < numMatrices; ++i) {
+            int blocks = (range[i] + 1 + 1023) / 1024;
+            prefix_blocks_write[i+1] = prefix_blocks_write[i] + blocks;
+        }
+        checkCuda(cudaMalloc(&d_prefix_blocks_write, (numMatrices+1)*sizeof(int)), "d_prefix_blocks_write");
+        checkCuda(cudaMemcpy(d_prefix_blocks_write, prefix_blocks_write.data(), (numMatrices+1)*sizeof(int), cudaMemcpyHostToDevice));
+        writeBackKernel<<<prefix_blocks_write.back(), 1024>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks_write, d_prefix_freq, numMatrices, prefix_global);
+        checkCuda(cudaDeviceSynchronize(), "writeBackKernel");
+
+        // Copy results back
+        checkCuda(cudaMemcpy(host_input, d_input, totalElements*sizeof(int), cudaMemcpyDeviceToHost));
+
+        // Update matrices
         pos = 0;
-        for (int k = 0; k < numMatrices; k++) {
-            const int r = rows[k], c = cols[k];
-            for (int i = 0; i < r; i++) {
-                for (int j = 0; j < c; j++) {
-                    matrices[k][i][j] = host_input[pos++];
-                }
-            }
+        for (int k = 0; k < numMatrices; ++k) {
+            auto& m = matrices[k];
+            for (auto& r : m)
+                for (int& v : r)
+                    v = host_input[pos++];
         }
+
+        // Cleanup
         delete[] host_input;
-        host_input = nullptr;
+        cudaFree(prefix_global);
+        cudaFree(d_prefix_freq);
+        cudaFree(d_prefix_blocks_init);
+        cudaFree(d_prefix_blocks_count);
+        cudaFree(d_prefix_blocks_scan);
+        cudaFree(d_prefix_blocks_write);
+        cudaFree(chunk_sums);
+
         return matrices;
     } catch (...) {
         if (host_input) delete[] host_input;
-        if (d_input) cudaFree(d_input);
-        if (d_range) cudaFree(d_range);
-        if (d_rows) cudaFree(d_rows);
-        if (d_cols) cudaFree(d_cols);
-        if (prefix_global) cudaFree(prefix_global);
-        if (d_prefix_blocks) cudaFree(d_prefix_blocks);
-        cudaDeviceReset();
+        cudaFree(d_input);
+        cudaFree(d_range);
+        cudaFree(d_rows);
+        cudaFree(d_cols);
+        cudaFree(prefix_global);
+        cudaFree(d_prefix_freq);
+        cudaFree(d_prefix_blocks_init);
+        cudaFree(d_prefix_blocks_count);
+        cudaFree(d_prefix_blocks_scan);
+        cudaFree(d_prefix_blocks_write);
+        cudaFree(chunk_sums);
         throw;
     }
 }
