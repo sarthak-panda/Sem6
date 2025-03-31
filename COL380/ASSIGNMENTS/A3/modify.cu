@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include "modify.cuh"
+#include <cmath>
+
 using namespace std;
 int nextPowerOfTwo(int n) {
     int p = 1;
@@ -173,22 +175,32 @@ void checkCuda(cudaError_t err, const char* msg) {
 }
 vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector<int>& range) {
     int* host_input = nullptr;
-    vector<int> rows, cols;
-    int *d_input = nullptr, *d_range = nullptr, *d_rows = nullptr;
-    int *d_cols = nullptr, *prefix_global = nullptr, *d_prefix_blocks = nullptr, *d_prefix_blocks_write = nullptr;;
+    vector<int> rows, cols, prefix_pass_1, prefix_pass_2;
+    int *d_input = nullptr, *d_range = nullptr;
+    int *d_rows = nullptr;
+    int *d_cols = nullptr;
+    int *d_prefix_pass_1 = nullptr, *d_prefix_pass_2 = nullptr;
     try {
         const int numMatrices = matrices.size();
         rows.resize(numMatrices);
         cols.resize(numMatrices);
-        int totalElements = 0;
+        int totalElements_0 = 0;
+        int totalElements_1 = 0;
+        int totalElements_2 = 0;
         for (int i = 0; i < numMatrices; i++) {
             if (matrices[i].empty() || matrices[i][0].empty()) {
                 throw runtime_error("Empty matrix detected");
             }
             rows[i] = matrices[i].size();
             cols[i] = matrices[i][0].size();
-            totalElements += rows[i] * cols[i];
+            d_prefix_pass_0[i] = totalElements_0+totalElements_1+totalElements_2;
+            totalElements_0 += rows[i] * cols[i];
+            d_prefix_pass_1[i] = totalElements_0+totalElements_1;
+            totalElements_1 += static_cast<int>(std::ceil(static_cast<double>(totalElements_0) / 1024))*1024;
+            d_prefix_pass_1[i] = totalElements_0+totalElements_1+totalElements_2;
+            totalElements_2 += static_cast<int>(std::ceil(static_cast<double>(totalElements_1) / 1024))*1024;
         }
+        int totalElements=(totalElements_0+totalElements_1+totalElements_2);
         host_input = new int[totalElements];
         int pos = 0;
         for (int k = 0; k < numMatrices; k++) {
