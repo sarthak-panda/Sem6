@@ -275,10 +275,10 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         checkCuda(cudaMemcpy(d_prefix_indices_pass_0, prefix_indices_pass_0.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_indices_pass_0 copy");
         checkCuda(cudaMemcpy(d_prefix_indices_pass_1, prefix_indices_pass_1.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_indices_pass_1 copy");
         checkCuda(cudaMemcpy(d_prefix_indices_pass_2, prefix_indices_pass_2.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_indices_pass_2 copy");
-        checkCuda(cudaMemcpy(d_prefix_blocks_count_freq, prefix_blocks_count_freq.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_count_freq copy");
-        checkCuda(cudaMemcpy(d_prefix_blocks_pass_0, prefix_blocks_pass_0.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_0 copy");
-        checkCuda(cudaMemcpy(d_prefix_blocks_pass_1, prefix_blocks_pass_1.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_1 copy");
-        checkCuda(cudaMemcpy(d_prefix_blocks_pass_2, prefix_blocks_pass_2.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_2 copy");
+        checkCuda(cudaMemcpy(d_prefix_blocks_count_freq, prefix_blocks_count_freq.data(), (numMatrices+1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_count_freq copy");
+        checkCuda(cudaMemcpy(d_prefix_blocks_pass_0, prefix_blocks_pass_0.data(), (numMatrices+1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_0 copy");
+        checkCuda(cudaMemcpy(d_prefix_blocks_pass_1, prefix_blocks_pass_1.data(), (numMatrices+1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_1 copy");
+        checkCuda(cudaMemcpy(d_prefix_blocks_pass_2, prefix_blocks_pass_2.data(), (numMatrices+1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_2 copy");
         countFreqKernel<<<totalCountFreqBlocks,numThreads>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks_count_freq, d_prefix_indices_count_freq, prefix_global, numMatrices, numThreads);
         checkCuda(cudaGetLastError(), "countFreqKernel launch");
         checkCuda(cudaDeviceSynchronize(), "countFreqKernel sync");
@@ -338,6 +338,12 @@ int main() {
     vector<vector<vector<int>>> matrices = {
     {
         {1, 3, 2},
+        {4, 6, 5},
+        {7, 9, 8},
+        {9, 7, 1}
+    },
+    {
+        {1, 3, 2},
         {0, 0, 1},
         {3, 2, 0},
         {0, 1, 1}
@@ -356,7 +362,7 @@ int main() {
     }
     };
     // Upper bound for this matrix's elements is 9.
-    vector<int> range = {3,7,9};
+    vector<int> range = {9,3,7,9};
 
     vector<vector<vector<int>>> result = modify(matrices, range);
 
