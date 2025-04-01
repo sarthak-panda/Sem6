@@ -431,6 +431,15 @@
 			"folderPath": "Sem6\\COL352\\Lectures\\25.pdf\\",
 			"badge": "✅",
 			"color": "foldercolorizer.color_00ff00"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\ASSIGNMENTS\\A3\\",
+			"color": "foldercolorizer.color_00ff00",
+			"badge": "✅"
+		},
+		{
+			"folderPath": "Sem6\\COL380\\ASSIGNMENTS\\A3\\s2_potent\\data_3\\",
+			"badge": "✅"
 		}
 	],
 	"files.associations": {
