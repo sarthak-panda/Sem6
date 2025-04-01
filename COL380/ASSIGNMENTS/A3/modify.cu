@@ -4,17 +4,18 @@
 #include <algorithm>
 #include <stdexcept>
 #include <cmath>
+#include <iostream>
 using namespace std;
 int nextPowerOfTwo(int n) {
     int p = 1;
     while (p < n) p *= 2;
     return p;
 }
-__global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, const int* d_prefix_blocks_pass_0,const int* d_prefix_indices_pass_0, int* prefix_global, int numMatrices, int threadsPerBlock) {
+__global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, const int* d_prefix_blocks_count_freq, int* prefix_global, int numMatrices, int threadsPerBlock,const int*d_prefix_indices_pass_0) {
     int block_idx = blockIdx.x;
     int matrix_k = -1;
     for (int i = 0; i < numMatrices; ++i) {
-        if (d_prefix_blocks_pass_0[i] <= block_idx && block_idx < d_prefix_blocks_pass_0[i+1]) {
+        if (d_prefix_blocks_count_freq[i] <= block_idx && block_idx < d_prefix_blocks_count_freq[i+1]) {
             matrix_k = i;
             break;
         }
@@ -29,7 +30,7 @@ __global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_r
         offset += d_rows[m] * d_cols[m];
     }
     int* matrix = d_input + offset;
-    int blocks_before = block_idx - d_prefix_blocks_pass_0[matrix_k];
+    int blocks_before = block_idx - d_prefix_blocks_count_freq[matrix_k];
     int start = blocks_before * threadsPerBlock;
     int i = start + threadIdx.x;
     if (i >= elements) return;
@@ -74,7 +75,8 @@ __global__ void preFixSumKernel(int* prefix_global, const int* d_prefix_blocks_p
         }
     }
     if (matrix_k == -1) return;
-    int array_start_idx=d_prefix_indices_pass_num[matrix_k];
+    int blocks_before = k - d_prefix_blocks_pass_num[matrix_k];
+    int array_start_idx=d_prefix_indices_pass_num[matrix_k]+blocks_before*numThreadsPerBlock;
     int* array = &prefix_global[array_start_idx];
     int array_size=numThreadsPerBlock;
     inclusiveBlellochScan(array, array_size);
@@ -96,10 +98,11 @@ __global__ void resolveHierarchyKernel(int* prefix_global, const int* d_prefix_b
         }
     }
     if (matrix_k == -1) return;
-    int array_start_idx=d_prefix_indices_pass_num[matrix_k];
+    int blocks_before = k - d_prefix_blocks_pass_num[matrix_k];
+    int array_start_idx=d_prefix_indices_pass_num[matrix_k]+blocks_before*blockDim.x;//numThreadsPerBlock;
     int* array = &prefix_global[array_start_idx];
     //int array_size=numThreadsPerBlock;
-    int array_size=blockDim.x;
+    //int array_size=blockDim.x;
     if(hierarchy_num==1||hierarchy_num==0){
         int StartIdx_Pass_next_MatK = d_prefix_indices_pass_num_next[matrix_k];
         int blocks_before = k - d_prefix_blocks_pass_num[matrix_k];
@@ -130,7 +133,7 @@ __global__ void writeBackKernel(int* d_input, const int* d_range, const int* d_r
     }
     int block_offset = k - d_prefix_blocks_pass_0[matrix_k];
     int val_start = block_offset * numThreadsPerBlock;
-    int val_end = min(val_start + numThreadsPerBlock, maxV + 1);
+    int val_end = min(val_start + numThreadsPerBlock, maxV+1);
     for (int val = val_start + threadIdx.x; val < val_end; val += blockDim.x) {
         int start = 0;
         if(val>=1){
@@ -167,6 +170,7 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
     int *prefix_global = nullptr;
     int*d_prefix_blocks_pass_0 = nullptr,*d_prefix_blocks_pass_1 = nullptr,*d_prefix_blocks_pass_2 = nullptr;
     int*d_prefix_indices_count_freq=nullptr,*d_prefix_blocks_count_freq=nullptr;
+    vector<int> h_p_g;
     int numThreads = 1024;
     try {
         const int numMatrices = matrices.size();
@@ -180,18 +184,18 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         prefix_blocks_pass_1.resize(numMatrices+1);
         prefix_blocks_pass_2.resize(numMatrices+1);
         prefix_blocks_count_freq.resize(numMatrices+1);
-        int Mat_Elements=0;
-        int Mat_Blocks=0;
-        int totalCountFreqBlocks=0;
+        int Mat_Elements = 0;
+        int Mat_Blocks = 0;
+        int totalCountFreqBlocks = 0;
         int Elements_0 = 0;
         int Elements_1 = 0;
         int Elements_2 = 0;
         int Blocks_0 = 0;
         int Blocks_1 = 0;
         int Blocks_2 = 0;
-        int TotalBlocks_0=0;
-        int TotalBlocks_1=0;
-        int TotalBlocks_2=0;
+        int TotalBlocks_0 = 0;
+        int TotalBlocks_1 = 0;
+        int TotalBlocks_2 = 0;
         int totalElements = 0;
         int totalElementsInPrefix = 0;
         for (int i = 0; i < numMatrices; i++) {
@@ -200,30 +204,38 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
             }
             rows[i] = matrices[i].size();
             cols[i] = matrices[i][0].size();
-            prefix_indices_pass_0[i] = Elements_0+Elements_1+Elements_2;
-            if(i>0){
-                prefix_indices_pass_0[i]+=prefix_indices_pass_0[i-1];
-            }
+            // prefix_indices_pass_0[i] = Elements_0+Elements_1+Elements_2;
+            // if(i>0){
+            //     prefix_indices_pass_0[i]+=prefix_indices_pass_0[i-1];
+            // }
             Elements_0 = range[i]+1;
             Blocks_0 = static_cast<int>(std::ceil(static_cast<double>(Elements_0) / numThreads));
+            Elements_0 = Blocks_0*numThreads;
             TotalBlocks_0+=Blocks_0;
             prefix_blocks_pass_0[i+1]=prefix_blocks_pass_0[i]+Blocks_0;
-            prefix_indices_pass_1[i] = Elements_0+Elements_1+Elements_2;
-            if(i>0){
-                prefix_indices_pass_1[i]+=prefix_indices_pass_1[i-1];
-            }
-            Elements_1 = Blocks_0*numThreads;
+            // prefix_indices_pass_1[i] = Elements_0+Elements_1+Elements_2;
+            // if(i>0){
+            //     prefix_indices_pass_1[i]+=prefix_indices_pass_1[i-1];
+            // }
+            Elements_1 = Blocks_0;
             Blocks_1 = static_cast<int>(std::ceil(static_cast<double>(Elements_1) / numThreads));
+            Elements_1 = Blocks_1*numThreads;
             TotalBlocks_1+=Blocks_1;
             prefix_blocks_pass_1[i+1]=prefix_blocks_pass_1[i]+Blocks_1;
-            prefix_indices_pass_2[i] = Elements_0+Elements_1+Elements_2;
-            if(i>0){
-                prefix_indices_pass_2[i]+=prefix_indices_pass_2[i-1];
-            }
-            Elements_2 = Blocks_1*numThreads;
+            // prefix_indices_pass_2[i] = Elements_0+Elements_1+Elements_2;
+            // if(i>0){
+            //     prefix_indices_pass_2[i]+=prefix_indices_pass_2[i-1];
+            // }
+            Elements_2 = Blocks_1;
             Blocks_2 = static_cast<int>(std::ceil(static_cast<double>(Elements_2) / numThreads));
+            Elements_2 = Blocks_2*numThreads;
             TotalBlocks_2+=Blocks_2;
             prefix_blocks_pass_2[i+1]=prefix_blocks_pass_2[i]+Blocks_2;
+
+            prefix_indices_pass_0[i] = totalElementsInPrefix;
+            prefix_indices_pass_1[i] = totalElementsInPrefix + Elements_0;
+            prefix_indices_pass_2[i] = totalElementsInPrefix + Elements_0 + Elements_1;
+
             totalElementsInPrefix+=Elements_0+Elements_1+Elements_2;
             Mat_Elements=rows[i] * cols[i];
             Mat_Blocks = static_cast<int>(std::ceil(static_cast<double>(Mat_Elements) / numThreads));
@@ -241,6 +253,10 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
                 }
             }
         }
+
+        h_p_g.resize(totalElementsInPrefix);
+
+
         checkCuda(cudaMalloc(&d_input, totalElements * sizeof(int)), "d_input alloc");
         CudaPtrGuard guard_d_input(reinterpret_cast<void**>(&d_input));
         checkCuda(cudaMalloc(&d_range, numMatrices * sizeof(int)), "d_range alloc");
@@ -265,8 +281,9 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         CudaPtrGuard guard_d_prefix_blocks_pass_1(reinterpret_cast<void**>(&d_prefix_blocks_pass_1));
         checkCuda(cudaMalloc(&d_prefix_blocks_pass_2, (numMatrices+1) * sizeof(int)), "d_prefix_blocks_pass_2 alloc");
         CudaPtrGuard guard_d_prefix_blocks_pass_2(reinterpret_cast<void**>(&d_prefix_blocks_pass_2));
-        checkCuda(cudaMalloc(&prefix_global, totalElementsInPrefix * sizeof(int)),"prefix_global alloc");
+        checkCuda(cudaMalloc(&prefix_global, totalElementsInPrefix * sizeof(int)), "prefix_global alloc");
         CudaPtrGuard guard_prefix_global(reinterpret_cast<void**>(&prefix_global));
+        checkCuda(cudaMemset(prefix_global, 0, totalElementsInPrefix * sizeof(int)), "memset prefix_global");
         checkCuda(cudaMemcpy(d_input, host_input, totalElements * sizeof(int), cudaMemcpyHostToDevice), "d_input copy");
         checkCuda(cudaMemcpy(d_range, range.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_range copy");
         checkCuda(cudaMemcpy(d_rows, rows.data(), numMatrices * sizeof(int), cudaMemcpyHostToDevice), "d_rows copy");
@@ -279,28 +296,84 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         checkCuda(cudaMemcpy(d_prefix_blocks_pass_0, prefix_blocks_pass_0.data(), (numMatrices+1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_0 copy");
         checkCuda(cudaMemcpy(d_prefix_blocks_pass_1, prefix_blocks_pass_1.data(), (numMatrices+1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_1 copy");
         checkCuda(cudaMemcpy(d_prefix_blocks_pass_2, prefix_blocks_pass_2.data(), (numMatrices+1) * sizeof(int), cudaMemcpyHostToDevice), "d_prefix_blocks_pass_2 copy");
-        countFreqKernel<<<totalCountFreqBlocks,numThreads>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks_count_freq, d_prefix_indices_count_freq, prefix_global, numMatrices, numThreads);
+        countFreqKernel<<<totalCountFreqBlocks,numThreads>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks_count_freq, prefix_global, numMatrices, numThreads,d_prefix_indices_pass_0);
         checkCuda(cudaGetLastError(), "countFreqKernel launch");
         checkCuda(cudaDeviceSynchronize(), "countFreqKernel sync");
+
+        checkCuda(cudaMemcpy(h_p_g.data(),prefix_global, totalElementsInPrefix * sizeof(int), cudaMemcpyDeviceToHost), "prefix copy");
+        for(int i=0;i<totalElementsInPrefix;i++){
+            cout<<h_p_g[i]<<" ";
+        }
+        cout<<endl;
+        cout<<"----------------------------"<<endl;
+
         preFixSumKernel<<<TotalBlocks_0,numThreads>>>(prefix_global,d_prefix_blocks_pass_0,d_prefix_indices_pass_0,d_prefix_indices_pass_1,numThreads,numMatrices,0);
         checkCuda(cudaGetLastError(), "preFixSumKernel_0 launch");
         checkCuda(cudaDeviceSynchronize(), "preFixSumKernel_0 sync");
+
+        checkCuda(cudaMemcpy(h_p_g.data(),prefix_global, totalElementsInPrefix * sizeof(int), cudaMemcpyDeviceToHost), "prefix copy");
+        for(int i=0;i<totalElementsInPrefix;i++){
+            cout<<h_p_g[i]<<" ";
+        }
+        cout<<endl;
+        cout<<"----------------------------"<<endl;
+
         preFixSumKernel<<<TotalBlocks_1,numThreads>>>(prefix_global,d_prefix_blocks_pass_1,d_prefix_indices_pass_1,d_prefix_indices_pass_2,numThreads,numMatrices,1);
         checkCuda(cudaGetLastError(), "preFixSumKernel_1 launch");
         checkCuda(cudaDeviceSynchronize(), "preFixSumKernel_1 sync");
+
+        checkCuda(cudaMemcpy(h_p_g.data(),prefix_global, totalElementsInPrefix * sizeof(int), cudaMemcpyDeviceToHost), "prefix copy");
+        for(int i=0;i<totalElementsInPrefix;i++){
+            cout<<h_p_g[i]<<" ";
+        }
+        cout<<endl;
+        cout<<"----------------------------"<<endl;
+
         preFixSumKernel<<<TotalBlocks_2,numThreads>>>(prefix_global,d_prefix_blocks_pass_2,d_prefix_indices_pass_2,nullptr,numThreads,numMatrices,2);
         checkCuda(cudaGetLastError(), "preFixSumKernel_2 launch");
         checkCuda(cudaDeviceSynchronize(), "preFixSumKernel_2 sync");
+
+        checkCuda(cudaMemcpy(h_p_g.data(),prefix_global, totalElementsInPrefix * sizeof(int), cudaMemcpyDeviceToHost), "prefix copy");
+        for(int i=0;i<totalElementsInPrefix;i++){
+            cout<<h_p_g[i]<<" ";
+        }
+        cout<<endl;
+        cout<<"----------------------------"<<endl;
+
         resolveHierarchyKernel<<<TotalBlocks_1,numThreads>>>(prefix_global,d_prefix_blocks_pass_1,d_prefix_indices_pass_1,d_prefix_indices_pass_2,numMatrices,1);
         checkCuda(cudaGetLastError(), "resolveHierarchyKernel_1 launch");
         checkCuda(cudaDeviceSynchronize(), "resolveHierarchyKernel_1 sync");
+
+        checkCuda(cudaMemcpy(h_p_g.data(),prefix_global, totalElementsInPrefix * sizeof(int), cudaMemcpyDeviceToHost), "prefix copy");
+        for(int i=0;i<totalElementsInPrefix;i++){
+            cout<<h_p_g[i]<<" ";
+        }
+        cout<<endl;
+        cout<<"----------------------------"<<endl;
+
         resolveHierarchyKernel<<<TotalBlocks_0,numThreads>>>(prefix_global,d_prefix_blocks_pass_0,d_prefix_indices_pass_0,d_prefix_indices_pass_1,numMatrices,0);
         checkCuda(cudaGetLastError(), "resolveHierarchyKernel_0 launch");
         checkCuda(cudaDeviceSynchronize(), "resolveHierarchyKernel_0 sync");
+
+        checkCuda(cudaMemcpy(h_p_g.data(),prefix_global, totalElementsInPrefix * sizeof(int), cudaMemcpyDeviceToHost), "prefix copy");
+        for(int i=0;i<totalElementsInPrefix;i++){
+            cout<<h_p_g[i]<<" ";
+        }
+        cout<<endl;
+        cout<<"----------------------------"<<endl;
+
         writeBackKernel<<<TotalBlocks_0,numThreads>>>(d_input, d_range, d_rows, d_cols,d_prefix_blocks_pass_0,d_prefix_indices_pass_0,numMatrices,prefix_global,numThreads);
         checkCuda(cudaGetLastError(), "writeBackKernel launch");
         checkCuda(cudaDeviceSynchronize(), "writeBackKernel sync");
         checkCuda(cudaMemcpy(host_input, d_input, totalElements * sizeof(int), cudaMemcpyDeviceToHost), "results copy");
+
+        checkCuda(cudaMemcpy(h_p_g.data(),prefix_global, totalElementsInPrefix * sizeof(int), cudaMemcpyDeviceToHost), "prefix copy");
+        for(int i=0;i<totalElementsInPrefix;i++){
+            cout<<h_p_g[i]<<" ";
+        }
+        cout<<endl;
+        cout<<"----------------------------"<<endl;
+
         pos = 0;
         for (int k = 0; k < numMatrices; k++) {
             const int r = rows[k], c = cols[k];
@@ -330,50 +403,4 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         cudaDeviceReset();
         throw;
     }
-}
-
-int main() {
-    // Example usage:
-    // A 4x3 matrix as given in the problem statement.
-    vector<vector<vector<int>>> matrices = {
-    {
-        {1, 3, 2},
-        {4, 6, 5},
-        {7, 9, 8},
-        {9, 7, 1}
-    },
-    {
-        {1, 3, 2},
-        {0, 0, 1},
-        {3, 2, 0},
-        {0, 1, 1}
-    },
-    {
-        {1, 3, 2},
-        {4, 6, 5},
-        {7, 3, 6},
-        {4, 7, 1}
-    },
-    {
-        {1, 3, 2},
-        {4, 6, 5},
-        {7, 9, 8},
-        {9, 7, 1}
-    }
-    };
-    // Upper bound for this matrix's elements is 9.
-    vector<int> range = {9,3,7,9};
-
-    vector<vector<vector<int>>> result = modify(matrices, range);
-
-    // Print the modified matrix.
-    for(auto& mat :result){
-        for (auto& row : mat) {
-            for (auto val : row)
-                cout << val << " ";
-            cout << "\n";
-        }
-        cout<<"------\n";
-    }
-    return 0;
 }
