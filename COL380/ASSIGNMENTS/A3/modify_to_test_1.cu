@@ -4,16 +4,8 @@
 #include <algorithm>
 #include <stdexcept>
 #include "modify.cuh"
-#include <cooperative_groups.h>
-
-using namespace cooperative_groups;
 using namespace std;
 int nextPowerOfTwo(int n) {
-    int p = 1;
-    while (p < n) p *= 2;
-    return p;
-}
-__device__ int nextPowerOfTwo(int n) {
     int p = 1;
     while (p < n) p *= 2;
     return p;
@@ -48,120 +40,60 @@ __global__ void countFreqKernel(int* d_input, const int* d_range, const int* d_r
         }
     }
 }
-__global__ void writeBackLocalScanKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, 
-                                int numMatrices, int* prefix_global, int max_padded_size, int n_segments, 
-                                int* d_block_sums) {
-    int k = blockIdx.x / n_segments; // Matrix index
-    int s = blockIdx.x % n_segments; // Segment index
+__global__ void writeBackKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, 
+                                int numMatrices, int* prefix_global, int max_padded_size) {
+    int k = blockIdx.x;
     if (k >= numMatrices) return;
-
     int maxV = d_range[k];
+    int rows = d_rows[k];
+    int cols = d_cols[k];
+    int totalElements = rows * cols;
     int n = maxV + 1;
-    int padded_n = nextPowerOfTwo(n);
+	int p = 1;
+    while (p < n) p *= 2;
+    int padded_n = p;
     int* prefixSumArray = &prefix_global[k * max_padded_size];
-    
-    // Determine segment boundaries
-    int elements_per_segment = (padded_n + n_segments - 1) / n_segments;
-    int start = s * elements_per_segment;
-    int end = min((s + 1) * elements_per_segment, padded_n);
-    
-    // Initialize and scan local segment
-    for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
-        if (i >= n) prefixSumArray[i] = 0;
+    int tid = threadIdx.x;
+    for (int i = tid; i < padded_n; i += blockDim.x) {
+        if (i >= n) {
+            prefixSumArray[i] = 0;
+        }
     }
     __syncthreads();
-
-    // Up-sweep
-    for (int stride = 1; stride < elements_per_segment; stride *= 2) {
-        for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
-            int idx = i + stride;
-            if (idx < end && (i - start) % (2 * stride) == (2 * stride - 1)) {
-                prefixSumArray[idx] += prefixSumArray[i];
+    for (int stride = 1; stride < padded_n; stride *= 2) {
+        for (int i = tid; i < padded_n / (2 * stride); i += blockDim.x) {
+            int idx = (i + 1) * 2 * stride - 1;
+            if (idx < padded_n) {
+                prefixSumArray[idx] += prefixSumArray[idx - stride];
             }
         }
         __syncthreads();
     }
-
-    // Down-sweep
-    if (threadIdx.x == 0 && end - 1 < padded_n) {
-        d_block_sums[k * n_segments + s] = prefixSumArray[end - 1];
-        prefixSumArray[end - 1] = 0;
+    if (tid == 0) {
+        prefixSumArray[padded_n - 1] = 0;
     }
     __syncthreads();
-
-    for (int stride = elements_per_segment / 2; stride > 0; stride /= 2) {
-        for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
-            int idx = i + stride;
-            if (idx < end && (i - start) % (2 * stride) == (stride - 1)) {
-                int temp = prefixSumArray[i];
-                prefixSumArray[i] = prefixSumArray[idx];
+    for (int stride = padded_n / 2; stride > 0; stride /= 2) {
+        for (int i = tid; i < padded_n / (2 * stride); i += blockDim.x) {
+            int idx = (i + 1) * 2 * stride - 1;
+            if (idx < padded_n) {
+                int temp = prefixSumArray[idx - stride];
+                prefixSumArray[idx - stride] = prefixSumArray[idx];
                 prefixSumArray[idx] += temp;
             }
         }
         __syncthreads();
     }
-}
-
-__global__ void computeBlockOffsets(int* d_block_sums, int* d_offsets, int numMatrices, int n_segments) {
-    int k = blockIdx.x;
-    if (k >= numMatrices) return;
-
-    extern __shared__ int shared_sums[];
-    int* block_sums = &d_block_sums[k * n_segments];
-    
-    // Load block sums into shared memory
-    if (threadIdx.x < n_segments) {
-        shared_sums[threadIdx.x] = block_sums[threadIdx.x];
+    int offset = 0;
+    for (int m = 0; m < k; m++) {
+        offset += d_rows[m] * d_cols[m];
     }
-    __syncthreads();
-
-    // Exclusive scan
-    for (int stride = 1; stride < n_segments; stride *= 2) {
-        if (threadIdx.x >= stride && threadIdx.x < n_segments) {
-            shared_sums[threadIdx.x] += shared_sums[threadIdx.x - stride];
-        }
-        __syncthreads();
-    }
-
-    // Store offsets
-    if (threadIdx.x < n_segments) {
-        d_offsets[k * n_segments + threadIdx.x] = (threadIdx.x > 0) ? shared_sums[threadIdx.x - 1] : 0;
-    }
-}
-
-__global__ void writeBackAddOffsetsKernel(int* d_input, const int* d_range, const int* d_rows, const int* d_cols, 
-                                int numMatrices, int* prefix_global, int max_padded_size, int n_segments, 
-                                const int* d_offsets) {
-    int k = blockIdx.x / n_segments; // Matrix index
-    int s = blockIdx.x % n_segments; // Segment index
-    if (k >= numMatrices) return;
-
-    int maxV = d_range[k];
-    int n = maxV + 1;
-    int padded_n = nextPowerOfTwo(n);
-    int* prefixSumArray = &prefix_global[k * max_padded_size];
-    int offset = d_offsets[k * n_segments + s];
-
-    // Apply offset to segment
-    int elements_per_segment = (padded_n + n_segments - 1) / n_segments;
-    int start = s * elements_per_segment;
-    int end = min((s + 1) * elements_per_segment, padded_n);
-
-    for (int i = start + threadIdx.x; i < end; i += blockDim.x) {
-        if (i < n) prefixSumArray[i] += offset;
-    }
-    __syncthreads();
-
-    // Write back to matrix
-    int rows = d_rows[k];
-    int cols = d_cols[k];
-    int totalElements = rows * cols;
-    int* matrix = d_input + (k > 0 ? d_rows[k-1] * d_cols[k-1] : 0);
-
-    for (int val = threadIdx.x; val <= maxV; val += blockDim.x) {
-        int start_pos = prefixSumArray[val];
-        int end_pos = (val == maxV) ? totalElements : prefixSumArray[val + 1];
-        for (int pos = start_pos; pos < end_pos; pos++) {
+    int* matrix = d_input + offset;
+    for (int val = tid; val <= maxV; val += blockDim.x) {
+        int start = prefixSumArray[val];
+        int end = (val == maxV) ? totalElements : prefixSumArray[val + 1];
+        if (start >= totalElements || end > totalElements) continue;
+        for (int pos = start; pos < end; pos++) {
             matrix[pos] = val;
         }
     }
@@ -188,9 +120,6 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
     cudaStream_t stream = nullptr;
     int *d_input = nullptr, *d_range = nullptr, *d_rows = nullptr;
     int *d_cols = nullptr, *prefix_global = nullptr, *d_prefix_blocks = nullptr;
-	const int n_segments = 5;
-	int* d_block_sums = nullptr;
-    int* d_offsets = nullptr;
 
     try {
         const int numMatrices = matrices.size();
@@ -211,29 +140,27 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         checkCuda(cudaMallocHost(&h_range, numMatrices * sizeof(int)), "h_range pinned alloc");
         checkCuda(cudaMallocHost(&h_rows, numMatrices * sizeof(int)), "h_rows pinned alloc");
         checkCuda(cudaMallocHost(&h_cols, numMatrices * sizeof(int)), "h_cols pinned alloc");
-		checkCuda(cudaMalloc(&d_block_sums, numMatrices * n_segments * sizeof(int)), "d_block_sums alloc");
-    	checkCuda(cudaMalloc(&d_offsets, numMatrices * n_segments * sizeof(int)), "d_offsets alloc");
 
         // Initialize host arrays
         memcpy(h_range, range.data(), numMatrices * sizeof(int));
         memcpy(h_rows, rows.data(), numMatrices * sizeof(int));
         memcpy(h_cols, cols.data(), numMatrices * sizeof(int));
 
-        // int pos = 0;
-        // for (int k = 0; k < numMatrices; k++) {
-        //     for (const auto& row : matrices[k]) {
-        //         for (int val : row) {
-        //             host_input[pos++] = val;
-        //         }
-        //     }
-        // }
-		int pos = 0;
-		for (int k = 0; k < numMatrices; k++) {
-			const int numElements = rows[k] * cols[k];
-			// Assuming matrices[k] points to a contiguous block, e.g., matrices[k][0]
-			std::copy(matrices[k][0], matrices[k][0] + numElements, host_input + pos);
-			pos += numElements;
-		}
+        int pos = 0;
+        for (int k = 0; k < numMatrices; k++) {
+            for (const auto& row : matrices[k]) {
+                for (int val : row) {
+                    host_input[pos++] = val;
+                }
+            }
+        }
+		// int pos = 0;
+		// for (int k = 0; k < numMatrices; k++) {
+		// 	const int numElements = rows[k] * cols[k];
+		// 	// Assuming matrices[k] points to a contiguous block, e.g., matrices[k][0]
+		// 	std::copy(matrices[k][0], matrices[k][0] + numElements, host_input + pos);
+		// 	pos += numElements;
+		// }
 
 
         // Allocate device memory
@@ -280,26 +207,8 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
         countFreqKernel<<<prefix_blocks[numMatrices], 1024, 0, stream>>>(d_input, d_range, d_rows, d_cols, d_prefix_blocks, numMatrices, prefix_global, max_padded_size, 1024);
         checkCuda(cudaGetLastError(), "countFreqKernel launch");
 
-        writeBackLocalScanKernel<<<numMatrices * n_segments, 1024>>>(
-			d_input, d_range, d_rows, d_cols, 
-			numMatrices, prefix_global, max_padded_size, 
-			n_segments, d_block_sums
-		);
-		checkCuda(cudaDeviceSynchronize(), "Local scan kernel");
-	
-		// Compute block offsets
-		computeBlockOffsets<<<numMatrices, n_segments, n_segments * sizeof(int)>>>(
-			d_block_sums, d_offsets, numMatrices, n_segments
-		);
-		checkCuda(cudaDeviceSynchronize(), "Offset computation");
-	
-		// Apply offsets and write back
-		writeBackAddOffsetsKernel<<<numMatrices * n_segments, 1024>>>(
-			d_input, d_range, d_rows, d_cols,
-			numMatrices, prefix_global, max_padded_size,
-			n_segments, d_offsets
-		);
-		checkCuda(cudaDeviceSynchronize(), "Final write-back");
+        writeBackKernel<<<numMatrices, 1024, 0, stream>>>(d_input, d_range, d_rows, d_cols, numMatrices, prefix_global, max_padded_size);
+        checkCuda(cudaGetLastError(), "writeBackKernel launch");
 
         // Asynchronous memory copy (Device to Host)
         checkCuda(cudaMemcpyAsync(host_input, d_input, totalElements * sizeof(int), cudaMemcpyDeviceToHost, stream), "results copy");
@@ -309,20 +218,20 @@ vector<vector<vector<int>>> modify(vector<vector<vector<int>>>& matrices, vector
 
         // Copy results back to matrices
         pos = 0;
-        // for (int k = 0; k < numMatrices; k++) {
-        //     const int r = rows[k], c = cols[k];
-        //     for (int i = 0; i < r; i++) {
-        //         for (int j = 0; j < c; j++) {
-        //             matrices[k][i][j] = host_input[pos++];
-        //         }
-        //     }
-        // }
-		for (int k = 0; k < numMatrices; k++) {
-			const int numElements = rows[k] * cols[k];
-			// Assuming matrices[k] points to a contiguous block (e.g., matrices[k][0])
-			std::copy(host_input + pos, host_input + pos + numElements, matrices[k][0]);
-			pos += numElements;
-		}
+        for (int k = 0; k < numMatrices; k++) {
+            const int r = rows[k], c = cols[k];
+            for (int i = 0; i < r; i++) {
+                for (int j = 0; j < c; j++) {
+                    matrices[k][i][j] = host_input[pos++];
+                }
+            }
+        }
+		// for (int k = 0; k < numMatrices; k++) {
+		// 	const int numElements = rows[k] * cols[k];
+		// 	// Assuming matrices[k] points to a contiguous block (e.g., matrices[k][0])
+		// 	std::copy(host_input + pos, host_input + pos + numElements, matrices[k][0]);
+		// 	pos += numElements;
+		// }
 		
 
         // Cleanup pinned host memory
